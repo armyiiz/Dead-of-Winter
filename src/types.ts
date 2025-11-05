@@ -18,6 +18,7 @@ export interface Location {
   searchDeck: string[];
   zombies: number; // จำนวนซอมบี้ปัจจุบัน
   barricades: number; // จำนวนเครื่องกีดขวางปัจจุบัน
+  isOverrun: boolean; // สถานที่ถูก overrun หรือไม่
   specialRule?: string;
 }
 

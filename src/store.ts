@@ -24,6 +24,8 @@ interface GameState {
   waste: number;
   actionDice: number[];
   selectedSurvivorId: string | null;
+  activeDebuffs: { type: string, duration: number }[];
+  hasRerolledThisTurn: boolean;
 
   // Actions
   setupGame: () => void;
@@ -37,6 +39,7 @@ interface GameState {
   cleanWaste: (survivorId: string, diceValue: number) => void;
   depositItems: (survivorId: string) => void;
   useSkill: (survivorId: string, targetId?: string) => void; // targetId can be another survivor
+  rerollDice: (diceValue: number) => void;
 }
 
 const useGameStore = create<GameState>((set, get) => ({
@@ -44,6 +47,7 @@ const useGameStore = create<GameState>((set, get) => ({
   morale: 0, currentDay: 0, currentPhase: 'Crisis', mainObjective: null, currentCrisis: null,
   gameStatus: 'Playing', actionLog: [], waste: 0, colonyInventory: [],
   survivors: [], locations: [], crisisDeck: [], actionDice: [], selectedSurvivorId: null,
+  activeDebuffs: [], hasRerolledThisTurn: false,
 
   setupGame: () => {
     const randomObjective = objectivesData[Math.floor(Math.random() * objectivesData.length)];
@@ -52,7 +56,7 @@ const useGameStore = create<GameState>((set, get) => ({
     set({
       mainObjective: randomObjective,
       survivors: startingSurvivors,
-      locations: locationsData.map(loc => ({ ...loc, zombies: 0, barricades: 0 })),
+      locations: locationsData.map(loc => ({ ...loc, zombies: 0, barricades: 0, isOverrun: false })),
       crisisDeck: [...crisisData].sort(() => 0.5 - Math.random()),
       morale: 5,
       currentDay: 1,
@@ -92,7 +96,14 @@ const useGameStore = create<GameState>((set, get) => ({
       });
       const diceCount = survivors.length + 1;
       const newDice = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1);
-      set({ locations: updatedLocations, currentCrisis: nextCrisis, currentPhase: 'Player', actionDice: newDice, actionLog: [...get().actionLog, `--- วันที่ ${get().currentDay}, เฟสวิกฤต ---`, `วิกฤต: ${nextCrisis?.title}`, `ทอยลูกเต๋าได้: ${newDice.join(', ')}`] });
+      set({
+        locations: updatedLocations,
+        currentCrisis: nextCrisis,
+        currentPhase: 'Player',
+        actionDice: newDice,
+        hasRerolledThisTurn: false, // Reset Chloe's skill usage
+        actionLog: [...get().actionLog, `--- วันที่ ${get().currentDay}, เฟสวิกฤต ---`, `วิกฤต: ${nextCrisis?.title}`, `ทอยลูกเต๋าได้: ${newDice.join(', ')}`]
+      });
     }
 
     // --- PLAYER PHASE ---
@@ -170,6 +181,30 @@ const useGameStore = create<GameState>((set, get) => ({
               }));
               log.push(`ผู้รอดชีวิตทุกคนได้รับบาดแผล!`);
               break;
+            case 'DESTROY_ALL_BARRICADES':
+              set(state => ({
+                locations: state.locations.map(l => l.id === 'L001' ? { ...l, barricades: 0 } : l)
+              }));
+              log.push('เครื่องกีดขวางทั้งหมดที่ฐานถูกทำลาย!');
+              break;
+            case 'DISCARD_ALL_FROM_COLONY':
+              set(state => ({
+                colonyInventory: state.colonyInventory.filter(i => i.type !== currentCrisis.penalty.value)
+              }));
+              log.push(`ไอเทมประเภท ${currentCrisis.penalty.value} ทั้งหมดถูกทิ้ง!`);
+              break;
+            case 'LOCATION_OVERRUN':
+                set(state => ({
+                    locations: state.locations.map(l => l.id === currentCrisis.penalty.value ? { ...l, isOverrun: true } : l)
+                }));
+                log.push(`สถานที่ ${locationsData.find(l => l.id === currentCrisis.penalty.value)?.name} ถูกยึดครอง!`);
+                break;
+            case 'GLOBAL_DEBUFF':
+                set(state => ({
+                    activeDebuffs: [...state.activeDebuffs, { type: currentCrisis.penalty.effect!, duration: currentCrisis.penalty.duration! }]
+                }));
+                log.push('เกิดผลกระทบด้านลบกับกลุ่ม!');
+                break;
           }
         }
       }
@@ -239,13 +274,42 @@ const useGameStore = create<GameState>((set, get) => ({
         }
 
         if (currentMorale <= 0) newGameStatus = 'Lost';
-        if (mainObjective?.winCondition.type === 'SURVIVE_DAYS' && currentDay >= mainObjective.winCondition.value!) newGameStatus = 'Won';
+
+        // Check win conditions
+        if (mainObjective) {
+          const { type, resource, value, requirements, location_id } = mainObjective.winCondition;
+          if (type === 'SURVIVE_DAYS' && currentDay >= value!) {
+            newGameStatus = 'Won';
+          } else if (type === 'HAVE_IN_STOCK' && colonyInventory.filter(i => i.type === resource).length >= value!) {
+            newGameStatus = 'Won';
+          } else if (type === 'HAVE_AT_LOCATION') {
+            const loc = get().locations.find(l => l.id === location_id);
+            if (loc && loc.barricades >= value!) newGameStatus = 'Won';
+          } else if (type === 'LOCATION_SECURED') {
+            const loc = get().locations.find(l => l.id === location_id);
+            if (loc && loc.zombies === 0 && loc.barricades >= requirements!.find(r => r.item === 'BARRICADE')!.value!) {
+              newGameStatus = 'Won';
+            }
+          }
+        }
 
         if (newGameStatus !== 'Playing') {
+            log.push(`ภารกิจสำเร็จ!`);
             log.push(`เกมจบแล้ว! ผล: ${newGameStatus.toUpperCase()}`);
             set({ gameStatus: newGameStatus, survivors: finalSurvivors, actionLog: [...get().actionLog, ...log] });
         } else {
-            set(state => ({ currentDay: state.currentDay + 1, currentPhase: 'Crisis', survivors: finalSurvivors, actionLog: [...state.actionLog, ...log] }));
+            // Tick down debuffs
+            const updatedDebuffs = get().activeDebuffs
+                .map(d => ({ ...d, duration: d.duration - 1 }))
+                .filter(d => d.duration > 0);
+
+            set(state => ({
+                currentDay: state.currentDay + 1,
+                currentPhase: 'Crisis',
+                survivors: finalSurvivors,
+                activeDebuffs: updatedDebuffs,
+                actionLog: [...state.actionLog, ...log]
+            }));
         }
     }
   },
@@ -258,28 +322,33 @@ const useGameStore = create<GameState>((set, get) => ({
     if (!survivor) return;
 
     let log = [`${survivor.name} เดินทางไปยัง ${locationsData.find(l => l.id === locationId)?.name}`];
-    const exposureRoll = Math.floor(Math.random() * 100) + 1;
 
     let updatedSurvivors = [...get().survivors];
     let updatedLocations = [...get().locations];
 
-    if (exposureRoll <= 60) { // 60% Safe
-      log.push('การเดินทางปลอดภัย');
-    } else if (exposureRoll <= 80) { // 20% Noise/Zombie
-      log.push('เสียงดังเกินไป ดึงดูดซอมบี้มา!');
-      updatedLocations = updatedLocations.map(l =>
-        l.id === locationId ? { ...l, zombies: l.zombies + 1 } : l
-      );
-    } else if (exposureRoll <= 95) { // 15% Wound
-      log.push(`${survivor.name} ได้รับบาดเจ็บระหว่างทาง!`);
-      updatedSurvivors = updatedSurvivors.map(s =>
-        s.id === survivorId ? { ...s, hp: s.hp - 1 } : s
-      );
-    } else { // 5% Bitten
-      log.push(`หายนะ! ${survivor.name} ถูกกัดและติดเชื้อ!`);
-      updatedSurvivors = updatedSurvivors.map(s =>
-        s.id === survivorId ? { ...s, status: 'Infected' } : s
-      );
+    // Marco's Skill: Fleet-Footed
+    if (survivor.id === 'S006') {
+      log.push('Marco เดินทางอย่างรวดเร็วและปลอดภัย!');
+    } else {
+      const exposureRoll = Math.floor(Math.random() * 100) + 1;
+      if (exposureRoll <= 60) { // 60% Safe
+        log.push('การเดินทางปลอดภัย');
+      } else if (exposureRoll <= 80) { // 20% Noise/Zombie
+        log.push('เสียงดังเกินไป ดึงดูดซอมบี้มา!');
+        updatedLocations = updatedLocations.map(l =>
+          l.id === locationId ? { ...l, zombies: l.zombies + 1 } : l
+        );
+      } else if (exposureRoll <= 95) { // 15% Wound
+        log.push(`${survivor.name} ได้รับบาดเจ็บระหว่างทาง!`);
+        updatedSurvivors = updatedSurvivors.map(s =>
+          s.id === survivorId ? { ...s, hp: s.hp - 1 } : s
+        );
+      } else { // 5% Bitten
+        log.push(`หายนะ! ${survivor.name} ถูกกัดและติดเชื้อ!`);
+        updatedSurvivors = updatedSurvivors.map(s =>
+          s.id === survivorId ? { ...s, status: 'Infected' } : s
+        );
+      }
     }
 
     // Update survivor's location
@@ -295,6 +364,16 @@ const useGameStore = create<GameState>((set, get) => ({
   },
 
   attack: (survivorId, diceValue) => {
+    const { activeDebuffs } = get();
+    const isDebuffed = activeDebuffs.some(d => d.type === 'ATTACK_DIFFICULTY_UP');
+    const requiredRoll = isDebuffed ? 4 : 3;
+
+    if (diceValue < requiredRoll) {
+      get().spendDice(diceValue);
+      set(state => ({ actionLog: [...state.actionLog, 'ลูกเต๋าไม่พอสำหรับการโจมตี!'] }));
+      return;
+    }
+
     get().spendDice(diceValue);
     const survivor = get().survivors.find(s => s.id === survivorId);
     if (!survivor) return;
@@ -432,7 +511,26 @@ const useGameStore = create<GameState>((set, get) => ({
         break;
       // Note: Marco, Chloe, and Arthur have passive or special-trigger skills handled elsewhere.
     }
-  }
+  },
+
+  rerollDice: (diceValue) => {
+    const { actionDice, hasRerolledThisTurn } = get();
+    if (hasRerolledThisTurn) {
+      set(state => ({ actionLog: [...state.actionLog, 'Chloe ใช้สกิลไปแล้วในเทิร์นนี้'] }));
+      return;
+    }
+    const diceIndex = actionDice.indexOf(diceValue);
+    if (diceIndex > -1) {
+      const newDiceValue = Math.floor(Math.random() * 6) + 1;
+      const newActionDice = [...actionDice];
+      newActionDice.splice(diceIndex, 1, newDiceValue);
+      set({
+        actionDice: newActionDice,
+        hasRerolledThisTurn: true,
+        actionLog: [...get().actionLog, `Chloe ใช้สกิล Lucky Break! ทอยลูกเต๋า ${diceValue} ใหม่ ได้ผลเป็น ${newDiceValue}`]
+      });
+    }
+  },
 }));
 
 export default useGameStore;
