@@ -1,0 +1,58 @@
+[
+  {
+    "id": "item_food_01",
+    "name": "อาหารกระป๋อง (Canned Food)",
+    "type": "FOOD",
+    "usable": false,
+    "description": "ถั่วกระป๋องที่ยังไม่บุบ ดูเหมือนจะยังกินได้"
+  },
+  {
+    "id": "item_med_01",
+    "name": "ผ้าพันแผล (Bandages)",
+    "type": "MEDICINE",
+    "usable": true,
+    "effect": {
+      "action": "HEAL_WOUND",
+      "value": 1,
+      "target": "SELF_OR_SAME_LOCATION"
+    },
+    "description": "สะอาดพอที่จะใช้ห้ามเลือด"
+  },
+  {
+    "id": "item_fuel_01",
+    "name": "แกลลอนน้ำมัน (Gas Can)",
+    "type": "FUEL",
+    "usable": false,
+    "description": "ยังมีน้ำมันเหลืออยู่เกือบครึ่งแกลลอน"
+  },
+  {
+    "id": "item_junk_01",
+    "name": "เศษเหล็ก (Scrap Metal)",
+    "type": "JUNK",
+    "usable": false,
+    "description": "ชิ้นส่วนโลหะที่ดูไร้ค่า... แต่อาจจะพอซ่อมอะไรได้บ้าง",
+    "specialRule": "ใช้แทนทรัพยากรอื่น 1 ชิ้น (ยกเว้น MEDICINE) ในการแก้ Crisis ได้"
+  },
+  {
+    "id": "item_weapon_01",
+    "name": "กระสุนปืน (Ammunition)",
+    "type": "WEAPON",
+    "usable": true,
+    "effect": {
+      "action": "FREE_ATTACK",
+      "value": 1,
+      "description": "ทิ้งการ์ดนี้เพื่อฆ่าซอมบี้ 1 ตัว ในสถานที่เดียวกัน (ไม่ต้องใช้ลูกเต๋า)"
+    }
+  },
+  {
+    "id": "item_barricade_01",
+    "name": "กล่องตะปู (Box of Nails)",
+    "type": "BARRICADE",
+    "usable": true,
+    "effect": {
+      "action": "FREE_BUILD",
+      "value": 1,
+      "description": "ทิ้งการ์ดนี้เพื่อสร้าง 'เครื่องกีดขวาง' 1 ชิ้น (ไม่ต้องใช้ลูกเต๋า)"
+    }
+  }
+]

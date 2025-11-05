@@ -1,0 +1,39 @@
+[
+  {
+    "id": "L001",
+    "name": "The Compound (ที่หลบภัย)",
+    "zombieSlots": 6,
+    "searchDeck": [],
+    "specialRule": "เป็นสถานที่เดียวที่ใช้แอ็กชัน Deposit Items และ Clean Waste ได้"
+  },
+  {
+    "id": "L002",
+    "name": "Grocery Store (ร้านขายของชำ)",
+    "zombieSlots": 4,
+    "searchDeck": [ "item_food_01", "item_food_01", "item_food_01", "item_junk_01", "item_med_01" ]
+  },
+  {
+    "id": "L003",
+    "name": "Hospital (โรงพยาบาล)",
+    "zombieSlots": 3,
+    "searchDeck": [ "item_med_01", "item_med_01", "item_med_01", "item_junk_01", "item_food_01" ]
+  },
+  {
+    "id": "L004",
+    "name": "Gas Station (ปั๊มน้ำมัน)",
+    "zombieSlots": 5,
+    "searchDeck": [ "item_fuel_01", "item_fuel_01", "item_fuel_01", "item_food_01", "item_junk_01" ]
+  },
+  {
+    "id": "L005",
+    "name": "Police Station (สถานีตำรวจ)",
+    "zombieSlots": 3,
+    "searchDeck": [ "item_weapon_01", "item_weapon_01", "item_med_01", "item_food_01" ]
+  },
+  {
+    "id": "L006",
+    "name": "Hardware Store (ร้านเครื่องมือช่าง)",
+    "zombieSlots": 4,
+    "searchDeck": [ "item_junk_01", "item_junk_01", "item_junk_01", "item_fuel_01", "item_barricade_01" ]
+  }
+]
