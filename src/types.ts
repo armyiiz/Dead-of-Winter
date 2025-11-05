@@ -6,6 +6,7 @@ export interface Survivor {
     name:string;
     description: string;
   };
+  status: 'Healthy' | 'Infected';
   locationId: string; // ID ของสถานที่ที่ผู้รอดชีวิตอยู่
   personalInventory: Item[]; // ไอเทมในช่องเก็บของส่วนตัว
 }
@@ -17,6 +18,7 @@ export interface Location {
   searchDeck: string[];
   zombies: number; // จำนวนซอมบี้ปัจจุบัน
   barricades: number; // จำนวนเครื่องกีดขวางปัจจุบัน
+  isOverrun: boolean; // สถานที่ถูก overrun หรือไม่
   specialRule?: string;
 }
 
