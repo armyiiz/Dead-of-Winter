@@ -1,0 +1,67 @@
+[
+  {
+    "id": "M001",
+    "title": "เอาตัวรอด (The Long Haul)",
+    "description": "พายุลูกใหญ่กำลังจะมาในอีกหนึ่งสัปดาห์... แค่เอาชีวิตรอดให้ได้ 7 วันก็พอแล้ว",
+    "winCondition": {
+      "type": "SURVIVE_DAYS",
+      "value": 7
+    }
+  },
+  {
+    "id": "M002",
+    "title": "กักตุนเสบียง (Hoarding Supplies)",
+    "description": "หน้าหนาวที่โหดร้ายกำลังจะมา เราต้องกักตุนอาหารให้มากพอ รวบรวม 'อาหาร' 10 ชิ้น ไว้ในคลังรวม (Compound) ให้ได้",
+    "winCondition": {
+      "type": "HAVE_IN_STOCK",
+      "resource": "FOOD",
+      "value": 10
+    }
+  },
+  {
+    "id": "M003",
+    "title": "ค้นหาตัวอย่าง (Finding Samples)",
+    "description": "มีข่าวลือว่าที่โรงพยาบาลมีตัวอย่างเชื้อที่อาจนำไปสู่การรักษาได้ เราต้องรวบรวม 'ยา' 5 ชิ้น จากที่ต่างๆ มาที่ฐาน",
+    "winCondition": {
+      "type": "HAVE_IN_STOCK",
+      "resource": "MEDICINE",
+      "value": 5
+    }
+  },
+  {
+    "id": "M004",
+    "title": "ซ่อมเครื่องส่งวิทยุ (Radio Repair)",
+    "description": "เครื่องส่งวิทยุบนดาดฟ้าพัง! เราต้องหาชิ้นส่วนมาซ่อมมันเพื่อติดต่อโลกภายนอก รวบรวม 'เชื้อเพลิง' 3 ชิ้น และ 'เศษเหล็ก' 3 ชิ้น มาที่คลังรวม",
+    "winCondition": {
+      "type": "HAVE_IN_STOCK_MULTI",
+      "requirements": [
+        { "type": "FUEL", "value": 3 },
+        { "type": "JUNK", "value": 3 }
+      ]
+    }
+  },
+  {
+    "id": "M005",
+    "title": "สร้างป้อมปราการใหม่ (New Fortress)",
+    "description": "สถานีตำรวจ (L005) ดูเหมาะเป็นฐานที่มั่นใหม่ เราต้องไปเคลียร์ซอมบี้ที่นั่น 'และ' สร้าง 'เครื่องกีดขวาง' (Barricade) ที่นั่นให้ครบ 3 ชิ้น เพื่อยึดครองพื้นที่",
+    "winCondition": {
+      "type": "LOCATION_SECURED",
+      "location_id": "L005",
+      "requirements": [
+        { "item": "ZOMBIE", "value": 0 },
+        { "item": "BARRICADE", "value": 3 }
+      ]
+    }
+  },
+  {
+    "id": "M006",
+    "title": "สร้างป้อมปราการ (Fortress)",
+    "description": "เราต้องทำให้ที่นี่ปลอดภัยที่สุด สร้าง 'เครื่องกีดขวาง' (Barricade) ที่ 'The Compound' (L001) ให้ครบ 5 ชิ้น",
+    "winCondition": {
+      "type": "HAVE_AT_LOCATION",
+      "item": "BARRICADE",
+      "location_id": "L001",
+      "value": 5
+    }
+  }
+]

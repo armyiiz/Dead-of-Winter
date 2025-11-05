@@ -1,0 +1,83 @@
+[
+  {
+    "id": "S001",
+    "name": "Marcus (นักสู้)",
+    "hp": 3,
+    "skill": {
+      "name": "Double Tap",
+      "description": "ใช้ลูกเต๋า '5' หรือ '6' เพื่อสั่งการ 'Attack' สกิลนี้จะฆ่าซอมบี้ 2 ตัวในครั้งเดียว"
+    }
+  },
+  {
+    "id": "S002",
+    "name": "Lina (นักค้นหา)",
+    "hp": 3,
+    "skill": {
+      "name": "Expert Scavenger",
+      "description": "(Passive) ทุกครั้งที่ 'Lina' ใช้แอ็กชัน 'Search' มีโอกาส 50% ที่เธอจะจั่วการ์ดไอเทมได้ 2 ใบ"
+    }
+  },
+  {
+    "id": "S003",
+    "name": "Elena (หมอ)",
+    "hp": 3,
+    "skill": {
+      "name": "First Aid",
+      "description": "ใช้ลูกเต๋า '4' หรือสูงกว่า เพื่อรักษา 'บาดแผล' (Wound) 1 แผล ให้กับตัวละครใดก็ได้ (รวมถึงตัวเอง) ที่อยู่ในสถานที่เดียวกัน"
+    }
+  },
+  {
+    "id": "S004",
+    "name": "David (วิศวกร)",
+    "hp": 3,
+    "skill": {
+      "name": "Handyman",
+      "description": "(Passive) เมื่อใช้แอ็กชัน 'Build' สกิลนี้จะสร้าง 'เครื่องกีดขวาง' (Barricade) 2 ชิ้น แทนที่จะเป็น 1 ชิ้น"
+    }
+  },
+  {
+    "id": "S005",
+    "name": "Arthur (ผู้นำ)",
+    "hp": 2,
+    "skill": {
+      "name": "Inspiring Presence",
+      "description": "(Passive) ตราบใดที่ 'Arthur' ยังมีชีวิตอยู่ 'ขวัญกำลังใจ' (Morale) ของกลุ่ม จะไม่สามารถลดต่ำกว่า 1 ได้"
+    }
+  },
+  {
+    "id": "S006",
+    "name": "Marco (นักวิ่ง)",
+    "hp": 3,
+    "skill": {
+      "name": "Fleet-Footed",
+      "description": "ใช้ลูกเต๋า 'ค่าใดก็ได้' เพื่อใช้สกิลนี้: 'Marco' สามารถ 'Move' 1 ครั้ง โดยไม่ต้องทอย 'ลูกเต๋าเสี่ยงภัย' (Exposure Die)"
+    }
+  },
+  {
+    "id": "S007",
+    "name": "Rosa (สายสนับสนุน)",
+    "hp": 3,
+    "skill": {
+      "name": "Efficient Cleaner",
+      "description": "(Passive) เมื่อใช้แอ็กชัน 'Clean Waste' จะสามารถลบ 'ขยะ' (Waste) ได้ 5 ชิ้น แทนที่จะเป็น 3 ชิ้น"
+    }
+  },
+  {
+    "id": "S008",
+    "name": "Frank (ผู้สังเกตการณ์)",
+    "hp": 4,
+    "skill": {
+      "name": "Protect the Compound",
+      "description": "ใช้ลูกเต๋า 'ค่าใดก็ได้' เพื่อใช้สกิลนี้: 'Frank' สามารถฆ่าซอมบี้ 1 ตัว ที่อยู่ใน 'The Compound' ได้ แม้ว่าตัวเขาจะอยู่ที่สถานที่อื่นก็ตาม"
+    }
+  },
+  {
+    "id": "S009",
+    "name": "Chloe (คนดวงดี)",
+    "hp": 2,
+    "skill": {
+      "name": "Lucky Break",
+      "description": "(Free Action - 1 ครั้งต่อเทิร์น) สามารถเลือก 'ทอยลูกเต๋าใหม่' (Reroll) 1 ลูก ที่อยู่ใน 'Dice Pool' ที่ยังไม่ได้ใช้ได้"
+    }
+  }
+]

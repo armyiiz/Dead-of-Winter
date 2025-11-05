@@ -1,0 +1,98 @@
+[
+  {
+    "id": "C001",
+    "title": "เสบียงเน่าเสีย",
+    "story": "เราพบว่าอาหารส่วนหนึ่งเริ่มเน่าเสียเพราะความชื้น เราต้องหาอาหารใหม่มาทดแทนก่อนที่ทุกคนจะหมดกำลังใจ",
+    "requirements": [{ "type": "FOOD", "amount": 2 }],
+    "penalty": { "type": "LOSE_MORALE", "value": 1 },
+    "crisisType": "Abstract"
+  },
+  {
+    "id": "C002",
+    "title": "เครื่องปั่นไฟดับ",
+    "story": "เครื่องปั่นไฟกระตุกและดับลง! ถ้าไม่เติมน้ำมัน เราจะต้องอยู่ในความมืดคืนนี้",
+    "requirements": [{ "type": "FUEL", "amount": 2 }],
+    "penalty": { "type": "LOSE_MORALE", "value": 1 },
+    "crisisType": "Physical"
+  },
+  {
+    "id": "C003",
+    "title": "ประตูฐานพัง",
+    "story": "ซอมบี้ตัวหนึ่งพังเข้ามาได้! มันพังประตูส่วนหนึ่งไป เราต้องใช้อุปกรณ์ซ่อมมันด่วน!",
+    "requirements": [{ "type": "JUNK", "amount": 2 }],
+    "penalty": { "type": "SPAWN_ZOMBIE_AT_COMPOUND", "value": 3 },
+    "crisisType": "Physical"
+  },
+  {
+    "id": "C004",
+    "title": "โรคระบาด",
+    "story": "มีคนเริ่มไอเป็นเลือด ดูเหมือนโรคระบาดกำลังจะเริ่มขึ้น เราต้องการยาโดยด่วน",
+    "requirements": [{ "type": "MEDICINE", "amount": 2 }],
+    "penalty": { "type": "LOSE_MORALE", "value": 2 },
+    "crisisType": "Abstract"
+  },
+  {
+    "id": "C005",
+    "title": "ระบบกรองน้ำล้มเหลว",
+    "story": "น้ำดื่มของเรามีกลิ่นแปลกๆ ระบบกรองน้ำต้องใช้เชื้อเพลิงและยาบางอย่างในการฆ่าเชื้อ",
+    "requirements": [{ "type": "FUEL", "amount": 1 }, { "type": "MEDICINE", "amount": 1 }],
+    "penalty": { "type": "ALL_SURVIVORS_TAKE_WOUND", "value": 1 },
+    "crisisType": "Physical"
+  },
+  {
+    "id": "C006",
+    "title": "ความสิ้นหวัง",
+    "story": "ทุกคนเริ่มหมดหวัง เราต้องการอะไรสักอย่างมาย้ำเตือนว่าเรายังมีชีวิตที่ดีได้",
+    "requirements": [{ "type": "FOOD", "amount": 1 }, { "type": "MEDICINE", "amount": 1 }, { "type": "FUEL", "amount": 1 }],
+    "penalty": { "type": "LOSE_MORALE", "value": 2 },
+    "crisisType": "Abstract"
+  },
+  {
+    "id": "C007",
+    "title": "รั้วพัง",
+    "story": "รั้วป้องกันส่วนหนึ่งของฐานพังลงมาอย่างไม่ทราบสาเหตุ เราต้องซ่อมมันก่อนที่ฝูงซอมบี้จะสังเกตเห็น!",
+    "requirements": [{ "type": "JUNK", "amount": 3 }],
+    "penalty": { "type": "DESTROY_ALL_BARRICADES", "value": "COMPOUND" },
+    "crisisType": "Physical"
+  },
+  {
+    "id": "C008",
+    "title": "หนูระบาด",
+    "story": "กองขยะของเราดึงดูดพวกหนู! ตอนนี้พวกมันเริ่มกัดแทะเสบียงยาของเราแล้ว เราต้องวางกับดักและกำจัดมัน",
+    "requirements": [{ "type": "JUNK", "amount": 2 }],
+    "penalty": { "type": "DISCARD_ALL_FROM_COLONY", "value": "MEDICINE" },
+    "crisisType": "Physical"
+  },
+  {
+    "id": "C009",
+    "title": "ขวัญเสีย",
+    "story": "หนึ่งในผู้รอดชีวิตกำลังสติแตก พวกเขาโวยวายและทำลายข้าวของ เราต้องการยาเพื่อสงบสติ หรืออาหารดีๆ เพื่อปลอบใจ",
+    "requirements": [{ "type": "MEDICINE", "amount": 1 }, { "type": "FOOD", "amount": 1 }],
+    "penalty": { "type": "MULTI_PENALTY", "effects": [{ "type": "LOSE_MORALE", "value": 1 }, { "type": "ADD_WASTE", "value": 3 }] },
+    "crisisType": "Abstract"
+  },
+  {
+    "id": "C010",
+    "title": "ฝูงซอมบี้ปิดล้อม",
+    "story": "ฝูงซอมบี้ขนาดใหญ่ไปรวมตัวกันที่ 'ปั๊มน้ำมัน' ทำให้เราเข้าไปเอาทรัพยากรไม่ได้ เราต้องสร้างระเบิดล่อพวกมันออกมา",
+    "requirements": [{ "type": "FUEL", "amount": 2 }],
+    "penalty": { "type": "LOCATION_OVERRUN", "value": "L004" },
+    "crisisType": "Physical"
+  },
+  {
+    "id": "C011",
+    "title": "อากาศหนาวจัด",
+    "story": "พายุหิมะ (หรือฝนที่หนาวจัด) พัดเข้ามาอย่างกะทันหัน เราต้องการอาหารแคลอรี่สูงจำนวนมากเพื่อสร้างความอบอุ่น",
+    "requirements": [{ "type": "FOOD", "amount": 4 }],
+    "penalty": { "type": "MULTI_PENALTY", "effects": [{ "type": "LOSE_MORALE", "value": 1 }, { "type": "ALL_SURVIVORS_TAKE_WOUND", "value": 1 }] },
+    "crisisType": "Abstract"
+  },
+  {
+    "id": "C012",
+    "title": "ซ่อมบำรุงอาวุธ",
+    "story": "อาวุธของเราเริ่มทื่อและปืนก็เริ่มฝืด เราต้องการเชื้อเพลิงล้างเขม่าและเศษเหล็กไว้ลับคม",
+    "requirements": [{ "type": "JUNK", "amount": 1 }, { "type": "FUEL", "amount": 1 }],
+    "penalty": { "type": "GLOBAL_DEBUFF", "effect": "ATTACK_DIFFICULTY_UP", "duration": 1 },
+    "crisisType": "Physical"
+  }
+]
