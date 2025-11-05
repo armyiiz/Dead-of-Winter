@@ -34,8 +34,9 @@ interface GameState {
   attack: (survivorId: string, diceValue: number) => void;
   search: (survivorId: string, diceValue: number) => void;
   buildBarricade: (survivorId: string, diceValue: number) => void;
-  cleanWaste: (diceValue: number) => void;
+  cleanWaste: (survivorId: string, diceValue: number) => void;
   depositItems: (survivorId: string) => void;
+  useSkill: (survivorId: string, targetId?: string) => void; // targetId can be another survivor
 }
 
 const useGameStore = create<GameState>((set, get) => ({
@@ -47,7 +48,7 @@ const useGameStore = create<GameState>((set, get) => ({
   setupGame: () => {
     const randomObjective = objectivesData[Math.floor(Math.random() * objectivesData.length)];
     const startingSurvivors = [...survivorsData].sort(() => 0.5 - Math.random()).slice(0, 3)
-      .map(s => ({ ...s, hp: s.skill.name === "Frank" ? 4 : (s.skill.name === "Arthur" || s.skill.name === "Chloe" ? 2 : 3), locationId: 'L001', personalInventory: [] }));
+      .map(s => ({ ...s, hp: s.skill.name === "Frank" ? 4 : (s.skill.name === "Arthur" || s.skill.name === "Chloe" ? 2 : 3), locationId: 'L001', personalInventory: [], status: 'Healthy' as 'Healthy' | 'Infected' }));
     set({
       mainObjective: randomObjective,
       survivors: startingSurvivors,
@@ -157,23 +158,47 @@ const useGameStore = create<GameState>((set, get) => ({
               set(state => ({ morale: state.morale - (currentCrisis.penalty.value as number || 1) }));
               log.push(`เสียขวัญกำลังใจ ${currentCrisis.penalty.value || 1} หน่วย`);
               break;
-            // Add other penalty types here later
+            case 'SPAWN_ZOMBIE_AT_COMPOUND':
+              set(state => ({
+                locations: state.locations.map(l => l.id === 'L001' ? { ...l, zombies: l.zombies + (currentCrisis.penalty.value as number || 1) } : l)
+              }));
+              log.push(`ซอมบี้ ${currentCrisis.penalty.value || 1} ตัวบุกฐาน!`);
+              break;
+            case 'ALL_SURVIVORS_TAKE_WOUND':
+              set(state => ({
+                survivors: state.survivors.map(s => ({ ...s, hp: s.hp - (currentCrisis.penalty.value as number || 1) }))
+              }));
+              log.push(`ผู้รอดชีวิตทุกคนได้รับบาดแผล!`);
+              break;
           }
         }
       }
 
       // 2. Consume Food
       const survivorsAtCompound = survivors.filter(s => s.locationId === 'L001');
-      let foodConsumed = 0;
       let foodNeeded = survivorsAtCompound.length;
-      let currentFood = colonyInventory.filter(i => i.type === 'FOOD').length;
-      if (currentFood >= foodNeeded) {
-          foodConsumed = foodNeeded;
+      let foodInColony = colonyInventory.filter(i => i.type === 'FOOD');
+
+      let updatedColonyInventory = [...colonyInventory];
+      let updatedSurvivors = [...survivors];
+
+      if (foodInColony.length >= foodNeeded) {
+          const foodToConsume = foodInColony.slice(0, foodNeeded);
+          updatedColonyInventory = updatedColonyInventory.filter(i => !foodToConsume.find(f => f.id === i.id));
           log.push(`ผู้รอดชีวิต ${foodNeeded} คนบริโภคอาหาร.`);
       } else {
-          log.push(`อาหารไม่พอ! ผู้รอดชีวิต ${foodNeeded - currentFood} คนอดอยาก.`);
-          // Starvation logic would go here
+          const foodDeficit = foodNeeded - foodInColony.length;
+          updatedColonyInventory = updatedColonyInventory.filter(i => i.type !== 'FOOD');
+          log.push(`อาหารไม่พอ! ผู้รอดชีวิต ${foodDeficit} คนอดอยาก.`);
+
+          // Apply starvation wounds
+          const survivorsToWound = updatedSurvivors.filter(s => s.locationId === 'L001').slice(0, foodDeficit);
+          for (const survivor of survivorsToWound) {
+              log.push(`${survivor.name} ได้รับบาดแผลจากการอดอาหาร!`);
+              updatedSurvivors = updatedSurvivors.map(s => s.id === survivor.id ? { ...s, hp: s.hp - 1 } : s);
+          }
       }
+      set(state => ({ colonyInventory: updatedColonyInventory, survivors: updatedSurvivors }));
 
       // 3. Waste & Rats
       const rats = Math.floor(waste / 3);
@@ -188,14 +213,39 @@ const useGameStore = create<GameState>((set, get) => ({
     else if (currentPhase === 'End') {
         let log = [`--- จบวัน ---`];
         let newGameStatus = gameStatus;
-        if (get().morale <= 0) newGameStatus = 'Lost';
+        let finalSurvivors = [...survivors];
+
+        // Check for infected survivors
+        const infectedSurvivors = finalSurvivors.filter(s => s.status === 'Infected');
+        if (infectedSurvivors.length > 0) {
+            for (const infected of infectedSurvivors) {
+                log.push(`${infected.name} ทนพิษบาดแผลไม่ไหวและเสียชีวิตแล้ว...`);
+            }
+            finalSurvivors = finalSurvivors.map(s => s.status === 'Infected' ? { ...s, hp: 0 } : s);
+        }
+
+        // Check for dead survivors
+        finalSurvivors = finalSurvivors.filter(s => s.hp > 0);
+        if (finalSurvivors.length === 0) {
+            newGameStatus = 'Lost';
+            log.push('ผู้รอดชีวิตคนสุดท้ายได้ตายจากไปแล้ว...');
+        }
+
+        let currentMorale = get().morale;
+        const arthurIsAlive = finalSurvivors.some(s => s.id === 'S005');
+        if (arthurIsAlive && currentMorale <= 0) {
+            currentMorale = 1;
+            log.push('Arthur ปลุกใจทุกคน ขวัญกำลังใจไม่ลดต่ำกว่า 1!');
+        }
+
+        if (currentMorale <= 0) newGameStatus = 'Lost';
         if (mainObjective?.winCondition.type === 'SURVIVE_DAYS' && currentDay >= mainObjective.winCondition.value!) newGameStatus = 'Won';
 
         if (newGameStatus !== 'Playing') {
             log.push(`เกมจบแล้ว! ผล: ${newGameStatus.toUpperCase()}`);
-            set({ gameStatus: newGameStatus, actionLog: [...get().actionLog, ...log] });
+            set({ gameStatus: newGameStatus, survivors: finalSurvivors, actionLog: [...get().actionLog, ...log] });
         } else {
-            set(state => ({ currentDay: state.currentDay + 1, currentPhase: 'Crisis', actionLog: [...state.actionLog, ...log] }));
+            set(state => ({ currentDay: state.currentDay + 1, currentPhase: 'Crisis', survivors: finalSurvivors, actionLog: [...state.actionLog, ...log] }));
         }
     }
   },
@@ -210,25 +260,36 @@ const useGameStore = create<GameState>((set, get) => ({
     let log = [`${survivor.name} เดินทางไปยัง ${locationsData.find(l => l.id === locationId)?.name}`];
     const exposureRoll = Math.floor(Math.random() * 100) + 1;
 
+    let updatedSurvivors = [...get().survivors];
+    let updatedLocations = [...get().locations];
+
     if (exposureRoll <= 60) { // 60% Safe
       log.push('การเดินทางปลอดภัย');
-    } else if (exposureRoll <= 80) { // 20% Add Waste
-      log.push('เจอขยะเกลื่อนกลาดระหว่างทาง!');
-      set(state => ({ waste: state.waste + 1 }));
-    } else if (exposureRoll <= 95) { // 15% Spawn Zombie
-      log.push('เสียงดังเกินไป ทำให้ซอมบี้ตามมา!');
-      set(state => ({
-        locations: state.locations.map(l => l.id === locationId ? { ...l, zombies: l.zombies + 1 } : l)
-      }));
-    } else { // 5% Take Wound
-      log.push('ถูกซอมบี้ซุ่มโจมตีระหว่างทาง!');
-      set(state => ({
-        survivors: state.survivors.map(s => s.id === survivorId ? { ...s, hp: s.hp - 1 } : s)
-      }));
+    } else if (exposureRoll <= 80) { // 20% Noise/Zombie
+      log.push('เสียงดังเกินไป ดึงดูดซอมบี้มา!');
+      updatedLocations = updatedLocations.map(l =>
+        l.id === locationId ? { ...l, zombies: l.zombies + 1 } : l
+      );
+    } else if (exposureRoll <= 95) { // 15% Wound
+      log.push(`${survivor.name} ได้รับบาดเจ็บระหว่างทาง!`);
+      updatedSurvivors = updatedSurvivors.map(s =>
+        s.id === survivorId ? { ...s, hp: s.hp - 1 } : s
+      );
+    } else { // 5% Bitten
+      log.push(`หายนะ! ${survivor.name} ถูกกัดและติดเชื้อ!`);
+      updatedSurvivors = updatedSurvivors.map(s =>
+        s.id === survivorId ? { ...s, status: 'Infected' } : s
+      );
     }
 
+    // Update survivor's location
+    updatedSurvivors = updatedSurvivors.map(s =>
+      s.id === survivorId ? { ...s, locationId } : s
+    );
+
     set(state => ({
-      survivors: state.survivors.map(s => s.id === survivorId ? { ...s, locationId } : s),
+      survivors: updatedSurvivors,
+      locations: updatedLocations,
       actionLog: [...state.actionLog, ...log]
     }));
   },
@@ -304,12 +365,32 @@ const useGameStore = create<GameState>((set, get) => ({
 
   buildBarricade: (survivorId, diceValue) => {
     get().spendDice(diceValue);
-    // ... build logic ...
+    const survivor = get().survivors.find(s => s.id === survivorId);
+    if (!survivor) return;
+
+    let barricadesBuilt = 1;
+    // David's Skill: Handyman
+    if (survivor.id === 'S004') {
+      barricadesBuilt = 2;
+    }
+
+    set(state => ({
+      locations: state.locations.map(l =>
+        l.id === survivor.locationId ? { ...l, barricades: l.barricades + barricadesBuilt } : l
+      ),
+      actionLog: [...state.actionLog, `${survivor.name} สร้างเครื่องกีดขวาง ${barricadesBuilt} ชิ้น`]
+    }));
   },
 
-  cleanWaste: (diceValue) => {
+  cleanWaste: (survivorId, diceValue) => {
     get().spendDice(diceValue);
-    set(state => ({ waste: Math.max(0, state.waste - 3) }));
+    const survivor = get().survivors.find(s => s.id === survivorId);
+    let wasteCleaned = 3;
+    // Rosa's Skill: Efficient Cleaner
+    if (survivor?.id === 'S007') {
+      wasteCleaned = 5;
+    }
+    set(state => ({ waste: Math.max(0, state.waste - wasteCleaned) }));
   },
 
   depositItems: (survivorId) => {
@@ -324,6 +405,33 @@ const useGameStore = create<GameState>((set, get) => ({
       colonyInventory: [...state.colonyInventory, ...itemsToDeposit],
       actionLog: [...state.actionLog, `${survivor.name} ฝากของเข้าคลัง: ${itemsToDeposit.map(i => i.name).join(', ')}`]
     }));
+  },
+
+  useSkill: (survivorId, targetId) => {
+    const survivor = get().survivors.find(s => s.id === survivorId);
+    if (!survivor) return;
+
+    switch (survivor.id) {
+      case 'S003': // Elena: First Aid
+        const target = get().survivors.find(s => s.id === targetId);
+        if (target && target.hp < 3) { // Assuming max HP is 3 for simplicity
+          set(state => ({
+            survivors: state.survivors.map(s => s.id === targetId ? { ...s, hp: s.hp + 1 } : s),
+            actionLog: [...state.actionLog, `${survivor.name} ใช้ปฐมพยาบาลรักษา ${target.name}`]
+          }));
+        }
+        break;
+      case 'S008': // Frank: Protect the Compound
+        const compound = get().locations.find(l => l.id === 'L001');
+        if (compound && compound.zombies > 0) {
+          set(state => ({
+            locations: state.locations.map(l => l.id === 'L001' ? { ...l, zombies: l.zombies - 1 } : l),
+            actionLog: [...state.actionLog, `${survivor.name} ยิงซอมบี้ที่ฐานจากระยะไกล!`]
+          }));
+        }
+        break;
+      // Note: Marco, Chloe, and Arthur have passive or special-trigger skills handled elsewhere.
+    }
   }
 }));
 

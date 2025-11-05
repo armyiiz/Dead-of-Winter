@@ -6,6 +6,7 @@ export interface Survivor {
     name:string;
     description: string;
   };
+  status: 'Healthy' | 'Infected';
   locationId: string; // ID ของสถานที่ที่ผู้รอดชีวิตอยู่
   personalInventory: Item[]; // ไอเทมในช่องเก็บของส่วนตัว
 }
