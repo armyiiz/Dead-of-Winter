@@ -89,14 +89,14 @@ const useGameStore = create<GameState>((set, get) => ({
         }
         return loc;
       });
-      set({ locations: updatedLocations, currentCrisis: nextCrisis, currentPhase: 'Player', actionLog: [...get().actionLog, `--- วันที่ ${get().currentDay}, เฟสวิกฤต ---`, `วิกฤต: ${nextCrisis?.title}`] });
+      const diceCount = survivors.length + 1;
+      const newDice = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1);
+      set({ locations: updatedLocations, currentCrisis: nextCrisis, currentPhase: 'Player', actionDice: newDice, actionLog: [...get().actionLog, `--- วันที่ ${get().currentDay}, เฟสวิกฤต ---`, `วิกฤต: ${nextCrisis?.title}`, `ทอยลูกเต๋าได้: ${newDice.join(', ')}`] });
     }
 
     // --- PLAYER PHASE ---
     else if (currentPhase === 'Player') {
-      const diceCount = survivors.length + 1;
-      const newDice = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1);
-      set({ actionDice: newDice, currentPhase: 'Colony', actionLog: [...get().actionLog, `--- เฟสผู้เล่น ---`, `ทอยลูกเต๋าได้: ${newDice.join(', ')}`] });
+      set({ currentPhase: 'Colony', actionLog: [...get().actionLog, `--- เฟสผู้เล่น ---`] });
     }
 
     // --- COLONY PHASE ---
@@ -106,18 +106,59 @@ const useGameStore = create<GameState>((set, get) => ({
       let crisisSuccess = true;
       if (currentCrisis) {
         const required = currentCrisis.requirements;
-        const available = [...colonyInventory, ...survivors.flatMap(s => s.personalInventory)];
-        for (const req of required) {
-            if (available.filter(item => item.type === req.type).length < req.amount) {
-                crisisSuccess = false;
-                break;
-            }
+        let availableItems: Item[] = [];
+
+        if (currentCrisis.crisisType === 'Abstract') {
+          availableItems = [...colonyInventory, ...survivors.flatMap(s => s.personalInventory)];
+        } else { // 'Physical'
+          availableItems = [...colonyInventory];
         }
-        if(crisisSuccess) {
-            log.push(`แก้ไขวิกฤตสำเร็จ!`);
+
+        for (const req of required) {
+          if (availableItems.filter(item => item.type === req.type).length < req.amount) {
+            crisisSuccess = false;
+            break;
+          }
+        }
+
+        if (crisisSuccess) {
+          log.push(`แก้ไขวิกฤตสำเร็จ!`);
+
+          let updatedColonyInventory = [...colonyInventory];
+          let updatedSurvivors = [...survivors];
+
+          for (const req of required) {
+            let amountToRemove = req.amount;
+
+            // First, remove from colony inventory
+            const itemsInColony = updatedColonyInventory.filter(i => i.type === req.type);
+            const toRemoveFromColony = itemsInColony.slice(0, amountToRemove);
+            updatedColonyInventory = updatedColonyInventory.filter(i => !toRemoveFromColony.find(r => r.id === i.id));
+            amountToRemove -= toRemoveFromColony.length;
+
+            // Then, if abstract and still items to remove, check personal inventories
+            if (amountToRemove > 0 && currentCrisis.crisisType === 'Abstract') {
+              for (const survivor of updatedSurvivors) {
+                if (amountToRemove === 0) break;
+                const itemsInPersonal = survivor.personalInventory.filter(i => i.type === req.type);
+                const toRemoveFromPersonal = itemsInPersonal.slice(0, amountToRemove);
+                survivor.personalInventory = survivor.personalInventory.filter(i => !toRemoveFromPersonal.find(r => r.id === i.id));
+                amountToRemove -= toRemoveFromPersonal.length;
+              }
+            }
+          }
+          set({ colonyInventory: updatedColonyInventory, survivors: updatedSurvivors });
+
         } else {
-            log.push(`แก้ไขวิกฤตล้มเหลว! ${currentCrisis.penalty.type}`);
-            set(state => ({ morale: state.morale - (currentCrisis.penalty.value || 1) }));
+          log.push(`แก้ไขวิกฤตล้มเหลว!`);
+          // Apply penalty
+          switch (currentCrisis.penalty.type) {
+            case 'LOSE_MORALE':
+              set(state => ({ morale: state.morale - (currentCrisis.penalty.value as number || 1) }));
+              log.push(`เสียขวัญกำลังใจ ${currentCrisis.penalty.value || 1} หน่วย`);
+              break;
+            // Add other penalty types here later
+          }
         }
       }
 
@@ -163,18 +204,102 @@ const useGameStore = create<GameState>((set, get) => ({
 
   moveSurvivor: (survivorId, locationId, diceValue) => {
     get().spendDice(diceValue);
-    // ... move logic with exposure die ...
-    set(state => ({ survivors: state.survivors.map(s => s.id === survivorId ? { ...s, locationId } : s) }));
+    const survivor = get().survivors.find(s => s.id === survivorId);
+    if (!survivor) return;
+
+    let log = [`${survivor.name} เดินทางไปยัง ${locationsData.find(l => l.id === locationId)?.name}`];
+    const exposureRoll = Math.floor(Math.random() * 100) + 1;
+
+    if (exposureRoll <= 60) { // 60% Safe
+      log.push('การเดินทางปลอดภัย');
+    } else if (exposureRoll <= 80) { // 20% Add Waste
+      log.push('เจอขยะเกลื่อนกลาดระหว่างทาง!');
+      set(state => ({ waste: state.waste + 1 }));
+    } else if (exposureRoll <= 95) { // 15% Spawn Zombie
+      log.push('เสียงดังเกินไป ทำให้ซอมบี้ตามมา!');
+      set(state => ({
+        locations: state.locations.map(l => l.id === locationId ? { ...l, zombies: l.zombies + 1 } : l)
+      }));
+    } else { // 5% Take Wound
+      log.push('ถูกซอมบี้ซุ่มโจมตีระหว่างทาง!');
+      set(state => ({
+        survivors: state.survivors.map(s => s.id === survivorId ? { ...s, hp: s.hp - 1 } : s)
+      }));
+    }
+
+    set(state => ({
+      survivors: state.survivors.map(s => s.id === survivorId ? { ...s, locationId } : s),
+      actionLog: [...state.actionLog, ...log]
+    }));
   },
 
   attack: (survivorId, diceValue) => {
     get().spendDice(diceValue);
-    // ... attack logic ...
+    const survivor = get().survivors.find(s => s.id === survivorId);
+    if (!survivor) return;
+
+    const location = get().locations.find(l => l.id === survivor.locationId);
+    if (!location || location.zombies === 0) return;
+
+    let zombiesKilled = 1;
+    // Marcus's Skill: Double Tap
+    if (survivor.id === 'S001' && (diceValue === 5 || diceValue === 6)) {
+      zombiesKilled = 2;
+    }
+
+    set(state => ({
+      locations: state.locations.map(l =>
+        l.id === survivor.locationId ? { ...l, zombies: Math.max(0, l.zombies - zombiesKilled) } : l
+      ),
+      actionLog: [...state.actionLog, `${survivor.name} โจมตีและสังหารซอมบี้ ${zombiesKilled} ตัว!`]
+    }));
   },
 
   search: (survivorId, diceValue) => {
     get().spendDice(diceValue);
-    // ... search logic ...
+    const survivor = get().survivors.find(s => s.id === survivorId);
+    if (!survivor) return;
+
+    const location = get().locations.find(l => l.id === survivor.locationId);
+    if (!location || location.searchDeck.length === 0) {
+      set(state => ({ actionLog: [...state.actionLog, `${survivor.name} ค้นหาแต่ไม่พบอะไรเลย...`] }));
+      return;
+    }
+
+    let itemsFound: Item[] = [];
+    const deck = [...location.searchDeck];
+    const foundItemId = deck.pop(); // Take one item from the deck
+
+    if (foundItemId) {
+      const item = createItemFromId(foundItemId);
+      if (item) itemsFound.push(item);
+    }
+
+    // Lina's Skill: Expert Scavenger (50% chance for extra item)
+    if (survivor.id === 'S002' && Math.random() < 0.5 && deck.length > 0) {
+        const extraItemId = deck.pop();
+        if (extraItemId) {
+            const extraItem = createItemFromId(extraItemId);
+            if (extraItem) itemsFound.push(extraItem);
+        }
+    }
+
+    if (itemsFound.length > 0) {
+      set(state => ({
+        survivors: state.survivors.map(s =>
+          s.id === survivorId ? { ...s, personalInventory: [...s.personalInventory, ...itemsFound] } : s
+        ),
+        locations: state.locations.map(l => l.id === location.id ? { ...l, searchDeck: deck } : l),
+        waste: state.waste + 1,
+        actionLog: [...state.actionLog, `${survivor.name} ค้นหาและพบ: ${itemsFound.map(i => i.name).join(', ')}`]
+      }));
+    } else {
+       set(state => ({
+           locations: state.locations.map(l => l.id === location.id ? { ...l, searchDeck: deck } : l),
+           waste: state.waste + 1,
+           actionLog: [...state.actionLog, `${survivor.name} ค้นหาแต่ไม่พบอะไรเลย...`]
+        }));
+    }
   },
 
   buildBarricade: (survivorId, diceValue) => {
@@ -188,7 +313,17 @@ const useGameStore = create<GameState>((set, get) => ({
   },
 
   depositItems: (survivorId) => {
-    // ... deposit logic ...
+    const survivor = get().survivors.find(s => s.id === survivorId);
+    if (!survivor || survivor.locationId !== 'L001' || survivor.personalInventory.length === 0) return;
+
+    const itemsToDeposit = [...survivor.personalInventory];
+    set(state => ({
+      survivors: state.survivors.map(s =>
+        s.id === survivorId ? { ...s, personalInventory: [] } : s
+      ),
+      colonyInventory: [...state.colonyInventory, ...itemsToDeposit],
+      actionLog: [...state.actionLog, `${survivor.name} ฝากของเข้าคลัง: ${itemsToDeposit.map(i => i.name).join(', ')}`]
+    }));
   }
 }));
 
