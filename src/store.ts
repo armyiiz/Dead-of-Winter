@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { Survivor, Location, Item, Crisis, MainObjective, Crossroad, CrossroadChoice, CrossroadAction } from './types';
 import survivorsData from './data/Survivors.json';
@@ -688,20 +689,29 @@ const useGameStore = create<GameState>((set, get) => ({
 
     const { crossroadsDeck, survivors, selectedSurvivorId } = get();
     const activeSurvivor = survivors.find(s => s.id === selectedSurvivorId);
-    if (!activeSurvivor) return;
+    const { colonyBuffs } = get();
 
     const potentialCards = crossroadsDeck.filter(card => {
       const trigger = card.trigger;
       if (trigger.type !== triggerType) return false;
 
-      // Location check (ANY or specific location)
-      if (trigger.type === 'LOCATION') {
-        return trigger.value === 'ANY' || trigger.value === triggerValue;
+      if (trigger.type === 'LOCATION' && (trigger.value === 'ANY' || trigger.value === triggerValue)) {
+        return true;
+      }
+      if (trigger.type === 'ACTION' && trigger.value === triggerValue) {
+        return true;
+      }
+      if (trigger.type === 'SURVIVOR_ACTION' && trigger.survivor_id === activeSurvivor?.id && trigger.action === triggerValue) {
+        return true;
+      }
+      if (trigger.type === 'STATE_CHECK' && trigger.condition === triggerValue) {
+        return true;
+      }
+      if (trigger.type === 'BUFF_CHECK' && colonyBuffs.includes(trigger.effect!)) {
+        return true;
       }
 
-      // Add more complex trigger logic here later (ACTION, STATE_CHECK, etc.)
-
-      return false; // Default deny
+      return false;
     });
 
     if (potentialCards.length > 0) {
@@ -813,6 +823,75 @@ const useGameStore = create<GameState>((set, get) => ({
             }
           }
           break;
+        case 'GAIN_SURVIVOR_WITH_RISK':
+          const newSurvivorData = survivorsData.find(s => !state.survivors.some(es => es.id === s.id));
+          if (newSurvivorData) {
+            let newSurvivor: Survivor = { ...newSurvivorData, hp: 3, locationId: activeSurvivor.locationId, personalInventory: [], status: 'Healthy', buffs: [], debuffs: [] };
+            for (let i = 0; i < (action.risk_rolls || 1); i++) {
+              if (Math.random() < 0.2) {
+                newSurvivor.hp -= 1;
+                state.log.push(`${newSurvivor.name} ได้รับบาดแผลจากการเสี่ยงภัย!`);
+              }
+            }
+            state.survivors.push(newSurvivor);
+            state.log.push(`ได้รับผู้รอดชีวิตใหม่: ${newSurvivor.name}`);
+          }
+          break;
+        case 'RISK_REWARD':
+          if (Math.random() < (action.success_chance || 0.5)) {
+            handleAction(action.success!);
+          } else {
+            handleAction(action.failure!);
+          }
+          break;
+        case 'ROLL_EXPOSURE_FOR_REWARD':
+          let survived = true;
+          for (let i = 0; i < (action.rolls || 1); i++) {
+            if (Math.random() < 0.2) {
+              survived = false;
+              state.survivors = state.survivors.map(s =>
+                s.id === activeSurvivor.id ? { ...s, hp: s.hp - 1 } : s
+              );
+              state.log.push(`${activeSurvivor.name} ได้รับบาดแผลจากการเสี่ยงภัย!`);
+            }
+          }
+          if (survived) {
+            handleAction(action.reward!);
+          }
+          break;
+        case 'WOUND_SURVIVORS':
+          state.survivors = state.survivors.map(s =>
+            action.survivor_ids!.includes(s.id) ? { ...s, hp: s.hp - (action.value || 1) } : s
+          );
+          state.log.push(`ผู้รอดชีวิตบางคนได้รับบาดแผล`);
+          break;
+        case 'TRADE_ITEM_STOCKPILE':
+          const costItem = state.colonyInventory.find(i => i.type === action.cost_type);
+          if (costItem) {
+            state.colonyInventory.splice(state.colonyInventory.indexOf(costItem), 1);
+            const rewardItem = itemsData.find(i => i.type === action.reward_type);
+            if (rewardItem) {
+              for (let i = 0; i < (action.reward_amount || 1); i++) {
+                state.colonyInventory.push(rewardItem);
+              }
+            }
+          }
+          break;
+        case 'TRADE_ITEM_FOR_BUFF':
+          const costItemForBuff = state.colonyInventory.find(i => i.type === action.cost_type);
+          if (costItemForBuff) {
+            state.colonyInventory.splice(state.colonyInventory.indexOf(costItemForBuff), 1);
+            set(state => ({ colonyBuffs: [...state.colonyBuffs, action.buff_effect!] }));
+          }
+          break;
+        case 'SPEND_DIE_FOR_REWARD':
+            const diceValue = action.value as number;
+            get().spendDice(diceValue); // Removes the die
+            if (action.reward) {
+              handleAction(action.reward); // Applies the reward
+            }
+            state.log.push(`ใช้ลูกเต๋า ${diceValue} เพื่อทำแอ็กชัน`);
+            break;
       }
     };
 
