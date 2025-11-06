@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { Survivor, Location, Item, Crisis, MainObjective } from './types';
+import { Survivor, Location, Item, Crisis, MainObjective, Crossroad, CrossroadChoice, CrossroadAction } from './types';
 import survivorsData from './data/Survivors.json';
 import locationsData from './data/Locations.json';
 import itemsData from './data/Items.json';
 import crisisData from './data/Crisis.json';
 import objectivesData from './data/MainObjectives.json';
+import crossroadsData from './data/Crossroads.json';
 
 // Helper
 const createItemFromId = (itemId: string): Item | undefined => itemsData.find(item => item.id === itemId);
@@ -27,6 +28,9 @@ interface GameState {
   activeDebuffs: { type: string, duration: number }[];
   hasRerolledThisTurn: boolean;
   pendingStarvationWounds: number;
+  crossroadsDeck: Crossroad[];
+  currentCrossroad: Crossroad | null;
+  colonyBuffs: string[];
 
   // Actions
   setupGame: () => void;
@@ -43,6 +47,8 @@ interface GameState {
   rerollDice: (diceValue: number) => void;
   resolveStarvation: (survivorId: string) => void;
   useUsableItem: (survivorId: string, itemId: string) => void;
+  triggerCrossroad: (triggerType: string, triggerValue: string) => void;
+  resolveCrossroad: (choice: CrossroadChoice) => void;
 }
 
 const useGameStore = create<GameState>((set, get) => ({
@@ -51,11 +57,12 @@ const useGameStore = create<GameState>((set, get) => ({
   gameStatus: 'Playing', actionLog: [], waste: 0, colonyInventory: [],
   survivors: [], locations: [], crisisDeck: [], actionDice: [], selectedSurvivorId: null,
   activeDebuffs: [], hasRerolledThisTurn: false, pendingStarvationWounds: 0,
+  crossroadsDeck: [], currentCrossroad: null, colonyBuffs: [],
 
   setupGame: () => {
     const randomObjective = objectivesData[Math.floor(Math.random() * objectivesData.length)];
     const startingSurvivors = [...survivorsData].sort(() => 0.5 - Math.random()).slice(0, 3)
-      .map(s => ({ ...s, hp: s.skill.name === "Frank" ? 4 : (s.skill.name === "Arthur" || s.skill.name === "Chloe" ? 2 : 3), locationId: 'L001', personalInventory: [], status: 'Healthy' as 'Healthy' | 'Infected' }));
+      .map(s => ({ ...s, hp: s.skill.name === "Frank" ? 4 : (s.skill.name === "Arthur" || s.skill.name === "Chloe" ? 2 : 3), locationId: 'L001', personalInventory: [], status: 'Healthy' as 'Healthy' | 'Infected', buffs: [], debuffs: [] }));
     set({
       mainObjective: randomObjective,
       survivors: startingSurvivors,
@@ -70,6 +77,8 @@ const useGameStore = create<GameState>((set, get) => ({
       colonyInventory: [],
       actionDice: [],
       selectedSurvivorId: null,
+      crossroadsDeck: [...crossroadsData].sort(() => 0.5 - Math.random()),
+      currentCrossroad: null,
     });
   },
 
@@ -107,11 +116,11 @@ const useGameStore = create<GameState>((set, get) => ({
           const locationData = locationsData.find(l => l.id === locId);
           if (locationData && location.zombies > locationData.zombieSlots) {
               location.isOverrun = true;
-              log.push(`สถานที่ ${location.name} ถูกซอมบี้บุกยึด (Overrun)!`);
+             // log.push(`สถานที่ ${location.name} ถูกซอมบี้บุกยึด (Overrun)!`);
 
               updatedSurvivors = updatedSurvivors.map(s => {
                   if (s.locationId === locId) {
-                      log.push(`${s.name} ถูกกัดระหว่างที่สถานที่ถูกบุกยึด!`);
+                     // log.push(`${s.name} ถูกกัดระหว่างที่สถานที่ถูกบุกยึด!`);
                       return { ...s, status: 'Infected' };
                   }
                   return s;
@@ -140,6 +149,14 @@ const useGameStore = create<GameState>((set, get) => ({
     // --- COLONY PHASE ---
     else if (currentPhase === 'Colony') {
       let log = [`--- เฟสที่หลบภัย ---`];
+
+      // STATE_CHECK TRIGGERS
+      if (get().colonyInventory.filter(i => i.type === 'FOOD').length <= 3) get().triggerCrossroad('STATE_CHECK', 'COLONY_FOOD_LOW');
+      if (get().survivors.some(s => s.hp < 3)) get().triggerCrossroad('STATE_CHECK', 'COLONY_HAS_WOUNDED');
+      if (get().survivors.length >= 4) get().triggerCrossroad('STATE_CHECK', 'SURVIVOR_COUNT_HIGH');
+      if (get().morale <= 2) get().triggerCrossroad('STATE_CHECK', 'COLONY_MORALE_LOW');
+      if (get().waste >= 5) get().triggerCrossroad('STATE_CHECK', 'COLONY_WASTE_HIGH');
+
       // 1. Resolve Crisis
       let crisisSuccess = true;
       if (currentCrisis) {
@@ -415,7 +432,7 @@ const useGameStore = create<GameState>((set, get) => ({
 
     // Update survivor's location
     updatedSurvivors = updatedSurvivors.map(s =>
-      s.id === survivorId ? { ...s, locationId } : s
+      s.id === survivorId ? { ...s, locationId, previousLocationId: survivor.locationId } : s
     );
 
     set(state => ({
@@ -423,6 +440,8 @@ const useGameStore = create<GameState>((set, get) => ({
       locations: updatedLocations,
       actionLog: [...state.actionLog, ...log]
     }));
+
+    get().triggerCrossroad('LOCATION', locationId);
   },
 
   attack: (survivorId, diceValue) => {
@@ -502,6 +521,8 @@ const useGameStore = create<GameState>((set, get) => ({
            actionLog: [...state.actionLog, `${survivor.name} ค้นหาแต่ไม่พบอะไรเลย...`]
         }));
     }
+
+    get().triggerCrossroad('ACTION', 'SEARCH');
   },
 
   buildBarricade: (survivorId, diceValue) => {
@@ -535,6 +556,10 @@ const useGameStore = create<GameState>((set, get) => ({
       waste: Math.max(0, state.waste - wasteCleaned),
       actionLog: [...state.actionLog, `${survivor?.name} เก็บกวาดขยะ ${wasteCleaned} ชิ้น`]
     }));
+
+    if (survivor?.id === 'S007') { // Rosa finds something
+      get().triggerCrossroad('SURVIVOR_ACTION', 'CLEAN_WASTE');
+    }
   },
 
   depositItems: (survivorId) => {
@@ -549,6 +574,10 @@ const useGameStore = create<GameState>((set, get) => ({
       colonyInventory: [...state.colonyInventory, ...itemsToDeposit],
       actionLog: [...state.actionLog, `${survivor.name} ฝากของเข้าคลัง: ${itemsToDeposit.map(i => i.name).join(', ')}`]
     }));
+
+    if (survivor.id === 'S005') { // Arthur's speech
+      get().triggerCrossroad('SURVIVOR_ACTION', 'DEPOSIT_ITEMS');
+    }
   },
 
   useSkill: (survivorId, targetId) => {
@@ -652,6 +681,151 @@ const useGameStore = create<GameState>((set, get) => ({
     );
 
     set({ survivors: updatedSurvivors, locations: updatedLocations, actionLog: [...get().actionLog, log.join(' ')] });
+  },
+
+  triggerCrossroad: (triggerType, triggerValue) => {
+    if (Math.random() > 0.3) return; // 30% chance to trigger
+
+    const { crossroadsDeck, survivors, selectedSurvivorId } = get();
+    const activeSurvivor = survivors.find(s => s.id === selectedSurvivorId);
+    if (!activeSurvivor) return;
+
+    const potentialCards = crossroadsDeck.filter(card => {
+      const trigger = card.trigger;
+      if (trigger.type !== triggerType) return false;
+
+      // Location check (ANY or specific location)
+      if (trigger.type === 'LOCATION') {
+        return trigger.value === 'ANY' || trigger.value === triggerValue;
+      }
+
+      // Add more complex trigger logic here later (ACTION, STATE_CHECK, etc.)
+
+      return false; // Default deny
+    });
+
+    if (potentialCards.length > 0) {
+      const selectedCard = potentialCards[Math.floor(Math.random() * potentialCards.length)];
+      const remainingDeck = crossroadsDeck.filter(card => card.id !== selectedCard.id);
+
+      set({
+        currentCrossroad: selectedCard,
+        crossroadsDeck: remainingDeck
+      });
+    }
+  },
+
+  resolveCrossroad: (choice) => {
+    const { survivors, selectedSurvivorId, locations, colonyInventory, morale } = get();
+    let state = {
+      survivors: [...survivors],
+      locations: [...locations],
+      colonyInventory: [...colonyInventory],
+      morale,
+      log: [choice.log]
+    };
+
+    const handleAction = (action: CrossroadAction) => {
+      const activeSurvivor = state.survivors.find(s => s.id === selectedSurvivorId);
+      if (!activeSurvivor) return;
+
+      switch (action.type) {
+        case 'NOTHING':
+          break;
+        case 'GAIN_MORALE':
+          state.morale += action.value || 1;
+          state.log.push(`ได้รับขวัญกำลังใจ ${action.value || 1} หน่วย`);
+          break;
+        case 'LOSE_MORALE':
+          state.morale -= action.value || 1;
+          state.log.push(`เสียขวัญกำลังใจ ${action.value || 1} หน่วย`);
+          break;
+        case 'SPAWN_ZOMBIE':
+          const locationId = action.location_id || activeSurvivor.locationId;
+          state.locations = state.locations.map(l =>
+            l.id === locationId ? { ...l, zombies: l.zombies + (action.value || 1) } : l
+          );
+          state.log.push(`ซอมบี้ ${action.value || 1} ตัวปรากฏตัวที่ ${locationsData.find(l => l.id === locationId)?.name}!`);
+          break;
+        case 'GAIN_ITEM_PERSONAL':
+          const item = itemsData.find(i => i.id === action.item_id);
+          if (item) {
+            state.survivors = state.survivors.map(s =>
+              s.id === activeSurvivor.id ? { ...s, personalInventory: [...s.personalInventory, ...Array(action.amount || 1).fill(item)] } : s
+            );
+            state.log.push(`${activeSurvivor.name} ได้รับ ${item.name} ${action.amount || ''}`);
+          }
+          break;
+        case 'GAIN_ITEM_STOCKPILE':
+          const stockItem = itemsData.find(i => i.type === action.item_type);
+          if (stockItem) {
+            for (let i = 0; i < (action.amount || 1); i++) {
+              state.colonyInventory.push(stockItem);
+            }
+            state.log.push(`ได้รับ ${stockItem.name} ${action.amount || 1} ชิ้นเข้าคลัง`);
+          }
+          break;
+        case 'MULTI_ACTION':
+          action.effects?.forEach(effect => handleAction(effect));
+          break;
+        case 'ADD_COLONY_BUFF':
+          set(state => ({ colonyBuffs: [...state.colonyBuffs, action.effect!] }));
+          state.log.push(`ได้รับ Buff: ${action.effect}`);
+          break;
+        case 'ADD_SURVIVOR_DEBUFF':
+          state.survivors = state.survivors.map(s =>
+            s.id === activeSurvivor.id ? { ...s, debuffs: [...s.debuffs, action.effect!] } : s
+          );
+          state.log.push(`${activeSurvivor.name} ได้รับ Debuff: ${action.effect}`);
+          break;
+        case 'GAIN_SURVIVOR_BUFF':
+          state.survivors = state.survivors.map(s =>
+            s.id === activeSurvivor.id ? { ...s, buffs: [...s.buffs, action.effect!] } : s
+          );
+          state.log.push(`${activeSurvivor.name} ได้รับ Buff: ${action.effect}`);
+          break;
+        case 'MOVE_TO_LOCATION':
+          state.survivors = state.survivors.map(s =>
+            s.id === activeSurvivor.id ? { ...s, locationId: action.location_id! } : s
+          );
+          state.log.push(`${activeSurvivor.name} ถูกย้ายไปยัง ${locationsData.find(l => l.id === action.location_id)?.name}`);
+          break;
+        case 'MOVE_TO_PREVIOUS_LOCATION':
+          state.survivors = state.survivors.map(s =>
+            s.id === activeSurvivor.id ? { ...s, locationId: s.previousLocationId || 'L001' } : s
+          );
+          state.log.push(`${activeSurvivor.name} กลับไปยังสถานที่ก่อนหน้า`);
+          break;
+        case 'TAKE_WOUND':
+          state.survivors = state.survivors.map(s =>
+            s.id === activeSurvivor.id ? { ...s, hp: s.hp - (action.value || 1) } : s
+          );
+          state.log.push(`${activeSurvivor.name} ได้รับบาดแผล ${action.value || 1} แผล`);
+          break;
+        case 'ROLL_EXPOSURE':
+          for (let i = 0; i < (action.value || 1); i++) {
+            // Simplified exposure logic for now
+            if (Math.random() < 0.2) {
+              state.survivors = state.survivors.map(s =>
+                s.id === activeSurvivor.id ? { ...s, hp: s.hp - 1 } : s
+              );
+              state.log.push(`${activeSurvivor.name} ได้รับบาดแผลจากการเสี่ยงภัย!`);
+            }
+          }
+          break;
+      }
+    };
+
+    handleAction(choice.action);
+
+    set({
+      survivors: state.survivors,
+      locations: state.locations,
+      colonyInventory: state.colonyInventory,
+      morale: state.morale,
+      currentCrossroad: null, // Close the modal
+      actionLog: [...get().actionLog, ...state.log]
+    });
   },
 }));
 
