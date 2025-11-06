@@ -7,11 +7,12 @@ import CrisisComponent from './components/CrisisComponent';
 import DicePoolComponent from './components/DicePoolComponent';
 import ActionsComponent from './components/ActionsComponent';
 import ActionLogComponent from './components/ActionLogComponent';
+import CrossroadsModal from './components/CrossroadsModal';
 
 import StarvationModal from './components/StarvationModal'; // Import the new component
 
 function App() {
-  const { setupGame, gameStatus, nextPhase, currentDay, currentPhase, pendingStarvationWounds } = useGameStore();
+  const { setupGame, gameStatus, nextPhase, currentDay, currentPhase, pendingStarvationWounds, currentCrossroad } = useGameStore();
   const [selectedDice, setSelectedDice] = useState<number | null>(null);
   const [isRerollMode, setRerollMode] = useState(false);
 
@@ -29,6 +30,7 @@ function App() {
   return (
     <div style={{ padding: '20px', fontFamily: 'Sarabun, sans-serif', display: 'flex', gap: '20px' }}>
       {pendingStarvationWounds > 0 && <StarvationModal />}
+      {currentCrossroad && <CrossroadsModal />}
       <div style={{ flex: 1 }}>
         <LocationsComponent />
         <SurvivorsComponent />
