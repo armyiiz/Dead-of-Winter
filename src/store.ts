@@ -231,6 +231,26 @@ const useGameStore = create<GameState>((set, get) => ({
                 }));
                 log.push('เกิดผลกระทบด้านลบกับกลุ่ม!');
                 break;
+            case 'MULTI_PENALTY':
+              currentCrisis.penalty.effects?.forEach(effect => {
+                switch (effect.type) {
+                  case 'LOSE_MORALE':
+                    set(state => ({ morale: state.morale - (effect.value as number || 1) }));
+                    log.push(`เสียขวัญกำลังใจ ${effect.value || 1} หน่วย`);
+                    break;
+                  case 'ADD_WASTE':
+                    set(state => ({ waste: state.waste + (effect.value as number || 0) }));
+                    log.push(`ขยะเพิ่มขึ้น ${effect.value || 0} ชิ้น`);
+                    break;
+                  case 'ALL_SURVIVORS_TAKE_WOUND':
+                    set(state => ({
+                      survivors: state.survivors.map(s => ({ ...s, hp: s.hp - (effect.value as number || 1) }))
+                    }));
+                    log.push(`ผู้รอดชีวิตทุกคนได้รับบาดแผล!`);
+                    break;
+                }
+              });
+              break;
           }
         }
       }
@@ -322,6 +342,14 @@ const useGameStore = create<GameState>((set, get) => ({
           } else if (type === 'LOCATION_SECURED') {
             const loc = get().locations.find(l => l.id === location_id);
             if (loc && loc.zombies === 0 && loc.barricades >= requirements!.find(r => r.item === 'BARRICADE')!.value!) {
+              newGameStatus = 'Won';
+            }
+          } else if (type === 'HAVE_IN_STOCK_MULTI') {
+            const hasAllItems = requirements!.every(req => {
+              const itemCount = colonyInventory.filter(i => i.type === req.type).length;
+              return itemCount >= req.value!;
+            });
+            if (hasAllItems) {
               newGameStatus = 'Won';
             }
           }
@@ -503,7 +531,10 @@ const useGameStore = create<GameState>((set, get) => ({
     if (survivor?.id === 'S007') {
       wasteCleaned = 5;
     }
-    set(state => ({ waste: Math.max(0, state.waste - wasteCleaned) }));
+    set(state => ({
+      waste: Math.max(0, state.waste - wasteCleaned),
+      actionLog: [...state.actionLog, `${survivor?.name} เก็บกวาดขยะ ${wasteCleaned} ชิ้น`]
+    }));
   },
 
   depositItems: (survivorId) => {

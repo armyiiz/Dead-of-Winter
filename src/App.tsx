@@ -8,22 +8,27 @@ import DicePoolComponent from './components/DicePoolComponent';
 import ActionsComponent from './components/ActionsComponent';
 import ActionLogComponent from './components/ActionLogComponent';
 
+import StarvationModal from './components/StarvationModal'; // Import the new component
+
 function App() {
-  const { setupGame, gameStatus, nextPhase, currentDay, currentPhase } = useGameStore();
+  const { setupGame, gameStatus, nextPhase, currentDay, currentPhase, pendingStarvationWounds } = useGameStore();
   const [selectedDice, setSelectedDice] = useState<number | null>(null);
+  const [isRerollMode, setRerollMode] = useState(false);
 
   // Setup game on initial render
   useEffect(() => {
     setupGame();
   }, [setupGame]);
 
-  // Reset selected dice when phase changes
+  // Reset selected dice and reroll mode when phase changes
   useEffect(() => {
     setSelectedDice(null);
+    setRerollMode(false);
   }, [currentPhase]);
 
   return (
     <div style={{ padding: '20px', fontFamily: 'Sarabun, sans-serif', display: 'flex', gap: '20px' }}>
+      {pendingStarvationWounds > 0 && <StarvationModal />}
       <div style={{ flex: 1 }}>
         <LocationsComponent />
         <SurvivorsComponent />
@@ -33,8 +38,12 @@ function App() {
         <p>สถานะเกม: {gameStatus} | วันที่: {currentDay} | เฟส: {currentPhase}</p>
 
         {gameStatus === 'Playing' && (
-          <button onClick={nextPhase} style={{ marginBottom: '10px', padding: '10px' }}>
-            ไปยังเฟสถัดไป (Next Phase)
+          <button
+            onClick={nextPhase}
+            style={{ marginBottom: '10px', padding: '10px' }}
+            disabled={pendingStarvationWounds > 0}
+          >
+            {pendingStarvationWounds > 0 ? 'รอแก้ไขการอดอาหาร...' : 'ไปยังเฟสถัดไป (Next Phase)'}
           </button>
         )}
 
@@ -43,8 +52,17 @@ function App() {
 
         <ColonyStatusComponent />
         <CrisisComponent />
-        <DicePoolComponent selectedDice={selectedDice} onSelectDice={setSelectedDice} />
-        <ActionsComponent selectedDice={selectedDice} />
+        <DicePoolComponent
+          selectedDice={selectedDice}
+          onSelectDice={setSelectedDice}
+          isRerollMode={isRerollMode}
+          setRerollMode={setRerollMode}
+        />
+        <ActionsComponent
+          selectedDice={selectedDice}
+          isRerollMode={isRerollMode}
+          setRerollMode={setRerollMode}
+        />
         <ActionLogComponent />
       </div>
     </div>
