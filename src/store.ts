@@ -26,6 +26,7 @@ interface GameState {
   selectedSurvivorId: string | null;
   activeDebuffs: { type: string, duration: number }[];
   hasRerolledThisTurn: boolean;
+  pendingStarvationWounds: number;
 
   // Actions
   setupGame: () => void;
@@ -40,6 +41,8 @@ interface GameState {
   depositItems: (survivorId: string) => void;
   useSkill: (survivorId: string, targetId?: string) => void; // targetId can be another survivor
   rerollDice: (diceValue: number) => void;
+  resolveStarvation: (survivorId: string) => void;
+  useUsableItem: (survivorId: string, itemId: string) => void;
 }
 
 const useGameStore = create<GameState>((set, get) => ({
@@ -47,7 +50,7 @@ const useGameStore = create<GameState>((set, get) => ({
   morale: 0, currentDay: 0, currentPhase: 'Crisis', mainObjective: null, currentCrisis: null,
   gameStatus: 'Playing', actionLog: [], waste: 0, colonyInventory: [],
   survivors: [], locations: [], crisisDeck: [], actionDice: [], selectedSurvivorId: null,
-  activeDebuffs: [], hasRerolledThisTurn: false,
+  activeDebuffs: [], hasRerolledThisTurn: false, pendingStarvationWounds: 0,
 
   setupGame: () => {
     const randomObjective = objectivesData[Math.floor(Math.random() * objectivesData.length)];
@@ -87,14 +90,37 @@ const useGameStore = create<GameState>((set, get) => ({
     // --- CRISIS PHASE ---
     if (currentPhase === 'Crisis') {
       const nextCrisis = get().crisisDeck.pop();
-      // Zombie Spawning
-      const updatedLocations = get().locations.map(loc => {
-        if (survivors.some(s => s.locationId === loc.id) && loc.id !== 'L001') {
-          return { ...loc, zombies: loc.zombies + 1 };
-        }
-        return loc;
-      });
-      const diceCount = survivors.length + 1;
+      // Zombie Spawning & Overrun Check
+      let updatedLocations = [...get().locations];
+      let updatedSurvivors = [...get().survivors];
+      const locationsWithSurvivors = new Set(survivors.map(s => s.locationId));
+
+      for (const locId of locationsWithSurvivors) {
+          if (locId === 'L001') continue;
+
+          const locIndex = updatedLocations.findIndex(l => l.id === locId);
+          if (locIndex === -1) continue;
+
+          let location = updatedLocations[locIndex];
+          location = { ...location, zombies: location.zombies + 1 };
+
+          const locationData = locationsData.find(l => l.id === locId);
+          if (locationData && location.zombies > locationData.zombieSlots) {
+              location.isOverrun = true;
+              log.push(`สถานที่ ${location.name} ถูกซอมบี้บุกยึด (Overrun)!`);
+
+              updatedSurvivors = updatedSurvivors.map(s => {
+                  if (s.locationId === locId) {
+                      log.push(`${s.name} ถูกกัดระหว่างที่สถานที่ถูกบุกยึด!`);
+                      return { ...s, status: 'Infected' };
+                  }
+                  return s;
+              });
+          }
+          updatedLocations[locIndex] = location;
+      }
+
+      const diceCount = updatedSurvivors.length + 1;
       const newDice = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1);
       set({
         locations: updatedLocations,
@@ -215,31 +241,39 @@ const useGameStore = create<GameState>((set, get) => ({
       let foodInColony = colonyInventory.filter(i => i.type === 'FOOD');
 
       let updatedColonyInventory = [...colonyInventory];
-      let updatedSurvivors = [...survivors];
 
       if (foodInColony.length >= foodNeeded) {
           const foodToConsume = foodInColony.slice(0, foodNeeded);
           updatedColonyInventory = updatedColonyInventory.filter(i => !foodToConsume.find(f => f.id === i.id));
           log.push(`ผู้รอดชีวิต ${foodNeeded} คนบริโภคอาหาร.`);
+          set({ colonyInventory: updatedColonyInventory });
       } else {
           const foodDeficit = foodNeeded - foodInColony.length;
           updatedColonyInventory = updatedColonyInventory.filter(i => i.type !== 'FOOD');
-          log.push(`อาหารไม่พอ! ผู้รอดชีวิต ${foodDeficit} คนอดอยาก.`);
-
-          // Apply starvation wounds
-          const survivorsToWound = updatedSurvivors.filter(s => s.locationId === 'L001').slice(0, foodDeficit);
-          for (const survivor of survivorsToWound) {
-              log.push(`${survivor.name} ได้รับบาดแผลจากการอดอาหาร!`);
-              updatedSurvivors = updatedSurvivors.map(s => s.id === survivor.id ? { ...s, hp: s.hp - 1 } : s);
-          }
+          log.push(`อาหารไม่พอ! ผู้เล่นต้องเลือกผู้รอดชีวิต ${foodDeficit} คนมารับบาดแผล`);
+          // TODO: UI should now prompt the player to call resolveStarvation for each deficit.
+          set({
+              colonyInventory: updatedColonyInventory,
+              pendingStarvationWounds: foodDeficit
+          });
       }
-      set(state => ({ colonyInventory: updatedColonyInventory, survivors: updatedSurvivors }));
 
       // 3. Waste & Rats
       const rats = Math.floor(waste / 3);
-      if (rats > survivors.length) {
+      if (rats > get().survivors.length) {
           log.push(`หนูระบาด! เสียขวัญกำลังใจและอาหาร.`);
-          set(state => ({ morale: state.morale - 1 }));
+
+          // Remove 1 food item
+          const foodIndex = get().colonyInventory.findIndex(i => i.type === 'FOOD');
+          let finalColonyInventory = [...get().colonyInventory];
+          if (foodIndex > -1) {
+              finalColonyInventory.splice(foodIndex, 1);
+          }
+
+          set(state => ({
+              morale: state.morale - 1,
+              colonyInventory: finalColonyInventory
+          }));
       }
       set(state => ({ actionLog: [...state.actionLog, ...log], currentPhase: 'End' }));
     }
@@ -530,6 +564,63 @@ const useGameStore = create<GameState>((set, get) => ({
         actionLog: [...get().actionLog, `Chloe ใช้สกิล Lucky Break! ทอยลูกเต๋า ${diceValue} ใหม่ ได้ผลเป็น ${newDiceValue}`]
       });
     }
+  },
+
+  resolveStarvation: (survivorId) => {
+    const { pendingStarvationWounds, survivors } = get();
+    if (pendingStarvationWounds > 0) {
+      const survivor = survivors.find(s => s.id === survivorId);
+      if (survivor) {
+        set(state => ({
+          survivors: state.survivors.map(s => s.id === survivorId ? { ...s, hp: s.hp - 1 } : s),
+          pendingStarvationWounds: state.pendingStarvationWounds - 1,
+          actionLog: [...state.actionLog, `${survivor.name} ได้รับบาดแผลจากการอดอาหาร`]
+        }));
+      }
+    }
+  },
+
+  useUsableItem: (survivorId, itemId) => {
+    const survivor = get().survivors.find(s => s.id === survivorId);
+    const item = survivor?.personalInventory.find(i => i.id === itemId);
+
+    if (!survivor || !item || !item.usable) return;
+
+    let log = [`${survivor.name} ใช้ ${item.name}`];
+    let updatedSurvivors = [...get().survivors];
+    let updatedLocations = [...get().locations];
+
+    // Apply item effect
+    switch (item.effect?.action) {
+      case 'HEAL_WOUND':
+        updatedSurvivors = updatedSurvivors.map(s =>
+          s.id === survivorId && s.hp < 3 ? { ...s, hp: s.hp + (item.effect?.value || 1) } : s
+        );
+        log.push(`และรักษาบาดแผล`);
+        break;
+      case 'FREE_ATTACK':
+        const location = updatedLocations.find(l => l.id === survivor.locationId);
+        if (location && location.zombies > 0) {
+          updatedLocations = updatedLocations.map(l =>
+            l.id === survivor.locationId ? { ...l, zombies: l.zombies - (item.effect?.value || 1) } : l
+          );
+          log.push(`และสังหารซอมบี้ 1 ตัว!`);
+        }
+        break;
+      case 'FREE_BUILD':
+        updatedLocations = updatedLocations.map(l =>
+            l.id === survivor.locationId ? { ...l, barricades: l.barricades + (item.effect?.value || 1) } : l
+        );
+        log.push(`และสร้างเครื่องกีดขวาง!`);
+        break;
+    }
+
+    // Remove item from personal inventory
+    updatedSurvivors = updatedSurvivors.map(s =>
+      s.id === survivorId ? { ...s, personalInventory: s.personalInventory.filter(i => i.id !== itemId) } : s
+    );
+
+    set({ survivors: updatedSurvivors, locations: updatedLocations, actionLog: [...get().actionLog, log.join(' ')] });
   },
 }));
 
