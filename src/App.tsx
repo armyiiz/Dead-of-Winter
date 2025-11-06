@@ -16,6 +16,11 @@ function App() {
   const [selectedDice, setSelectedDice] = useState<number | null>(null);
   const [isRerollMode, setRerollMode] = useState(false);
 
+  // Function to clear selected dice after an action is used
+  const handleActionUsed = () => {
+    setSelectedDice(null);
+  };
+
   // Setup game on initial render
   useEffect(() => {
     setupGame();
@@ -32,7 +37,7 @@ function App() {
       {pendingStarvationWounds > 0 && <StarvationModal />}
       {currentCrossroad && <CrossroadsModal />}
       <div style={{ flex: 1 }}>
-        <LocationsComponent />
+        <LocationsComponent selectedDice={selectedDice} onActionUsed={handleActionUsed} />
         <SurvivorsComponent />
       </div>
       <div style={{ flex: 1 }}>
@@ -64,6 +69,7 @@ function App() {
           selectedDice={selectedDice}
           isRerollMode={isRerollMode}
           setRerollMode={setRerollMode}
+          onActionUsed={handleActionUsed}
         />
         <ActionLogComponent />
       </div>
