@@ -4,9 +4,10 @@ interface ActionsProps {
   selectedDice: number | null;
   isRerollMode: boolean;
   setRerollMode: (value: boolean) => void;
+  onActionUsed: () => void;
 }
 
-const ActionsComponent = ({ selectedDice, isRerollMode, setRerollMode }: ActionsProps) => {
+const ActionsComponent = ({ selectedDice, isRerollMode, setRerollMode, onActionUsed }: ActionsProps) => {
   const { selectedSurvivorId, attack, search, buildBarricade, cleanWaste, depositItems, survivors, activeDebuffs, hasRerolledThisTurn } = useGameStore();
   const selectedSurvivor = survivors.find(s => s.id === selectedSurvivorId);
   const isAttackDebuffed = activeDebuffs.some(d => d.type === 'ATTACK_DIFFICULTY_UP');
@@ -15,6 +16,7 @@ const ActionsComponent = ({ selectedDice, isRerollMode, setRerollMode }: Actions
   const handleAction = (action: (survivorId: string, diceValue: number) => void) => {
     if (selectedSurvivorId && selectedDice) {
       action(selectedSurvivorId, selectedDice);
+      onActionUsed(); // Clear the selected dice
     }
   };
 
@@ -26,6 +28,7 @@ const ActionsComponent = ({ selectedDice, isRerollMode, setRerollMode }: Actions
       // For now, let's assume it should take survivorId too for consistency.
       if (selectedSurvivorId) {
          cleanWaste(selectedSurvivorId, selectedDice);
+         onActionUsed(); // Clear the selected dice
       }
     }
   }
