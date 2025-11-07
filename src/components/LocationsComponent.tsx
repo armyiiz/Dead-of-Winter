@@ -1,4 +1,6 @@
 import useGameStore from '../store';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import Button from './ui/button';
 
 interface LocationsComponentProps {
   selectedDice: number | null;
@@ -17,25 +19,46 @@ const LocationsComponent: React.FC<LocationsComponentProps> = ({ selectedDice, o
   };
 
   return (
-    <div style={{ border: '1px solid #ccc', padding: '10px', marginBottom: '10px' }}>
-      <h2>สถานที่ (Locations)</h2>
-      {locations.map(location => (
-        <div
-          key={location.id}
-          className={`location-card location-${location.id}`} // Add a class for easier selection
-          style={{ border: '1px solid #555', padding: '5px', marginBottom: '5px' }}
-        >
-          <h4>{location.name}</h4>
-          <p>จำนวนซอมบี้: {location.zombies} / {location.zombieSlots}</p>
-          <p>เครื่องกีดขวาง: {location.barricades}</p>
-          {selectedSurvivorId && selectedSurvivor?.locationId !== location.id && (
-            <button onClick={() => handleMove(location.id)} disabled={!selectedDice}>
-              เดินทางมาที่นี่ (ใช้ลูกเต๋า: {selectedDice || 'เลือกก่อน'})
-            </button>
-          )}
+    <Card className="bg-surface">
+      <CardHeader>
+        <CardTitle>สถานที่ (Locations)</CardTitle>
+      </CardHeader>
+      <CardContent className="gap-3">
+        <div className="flex flex-col gap-3">
+          {locations.map(location => {
+            const isCurrent = selectedSurvivor?.locationId === location.id;
+            return (
+              <div
+                key={location.id}
+                className={`location-card border rounded-lg p-3 ${isCurrent ? 'border-strong bg-surface-muted' : 'bg-surface-elevated'}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold">{location.name}</h4>
+                  <span className="status-pill">{location.id}</span>
+                </div>
+                <div className="text-sm text-muted">
+                  <p>จำนวนซอมบี้: {location.zombies} / {location.zombieSlots}</p>
+                  <p>เครื่องกีดขวาง: {location.barricades}</p>
+                </div>
+                {selectedSurvivorId && !isCurrent && (
+                  <div className="mt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleMove(location.id)}
+                      disabled={!selectedDice}
+                      className="w-full"
+                    >
+                      เดินทางมาที่นี่ (ใช้ลูกเต๋า: {selectedDice || 'เลือกก่อน'})
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-      ))}
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

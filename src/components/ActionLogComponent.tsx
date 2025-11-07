@@ -1,17 +1,32 @@
+import { useEffect, useRef } from 'react';
 import useGameStore from '../store';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 const ActionLogComponent = () => {
   const { actionLog } = useGameStore();
+  const logRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [actionLog]);
 
   return (
-    <div style={{ border: '1px solid #ccc', padding: '10px', marginTop: '10px', height: '200px', overflowY: 'scroll' }}>
-      <h3>บันทึกเหตุการณ์ (Action Log)</h3>
-      <ul>
-        {actionLog.map((log, index) => (
-          <li key={index}>{log}</li>
-        ))}
-      </ul>
-    </div>
+    <Card className="bg-surface">
+      <CardHeader>
+        <CardTitle>บันทึกเหตุการณ์ (Action Log)</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div ref={logRef} className="action-log">
+          <ul>
+            {actionLog.map((log, index) => (
+              <li key={index}>{log}</li>
+            ))}
+          </ul>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import useGameStore from '../store';
-import { Crossroad, CrossroadChoice } from '../types';
+import { CrossroadChoice } from '../types';
 import DicePoolComponent from './DicePoolComponent';
+import Button from './ui/button';
 
 const CrossroadsModal: React.FC = () => {
   const { currentCrossroad, resolveCrossroad, survivors, selectedSurvivorId } = useGameStore();
@@ -49,34 +50,36 @@ const CrossroadsModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full">
+    <div className="fixed inset-0 bg-overlay backdrop-blur flex items-center justify-center z-50">
+      <div className="ui-modal max-w-lg">
         <h2 className="text-2xl font-bold mb-4">{currentCrossroad.title}</h2>
-        <p className="mb-4">{currentCrossroad.setup}</p>
+        <p className="text-sm text-muted mb-4">{currentCrossroad.setup}</p>
         {spendDiceChoice ? (
-          <div>
-            <DicePoolComponent selectedDice={selectedDice} onSelectDice={setSelectedDice} isRerollMode={false} setRerollMode={() => {}} />
-            <button onClick={handleSpendDice} disabled={!selectedDice} className="w-full bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4">
-              Confirm Dice Selection
-            </button>
+          <div className="flex flex-col gap-3">
+            <DicePoolComponent
+              selectedDice={selectedDice}
+              onSelectDice={setSelectedDice}
+              isRerollMode={false}
+              setRerollMode={() => {}}
+            />
+            <Button variant="primary" onClick={handleSpendDice} disabled={!selectedDice}>
+              ยืนยันการใช้ลูกเต๋า
+            </Button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {currentCrossroad.choices.map((choice, index) => {
               const isEnabled = checkRequirements(choice);
               return (
-                <button
+                <Button
                   key={index}
                   onClick={() => handleChoice(choice)}
                   disabled={!isEnabled}
-                  className={`w-full font-bold py-2 px-4 rounded ${
-                    isEnabled
-                      ? 'bg-blue-500 hover:bg-blue-700 text-white'
-                      : 'bg-gray-400 text-gray-700 cursor-not-allowed'
-                  }`}
+                  className="w-full"
+                  variant={isEnabled ? 'primary' : 'outline'}
                 >
                   {choice.text}
-                </button>
+                </Button>
               );
             })}
           </div>

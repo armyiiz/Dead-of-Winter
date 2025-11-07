@@ -1,0 +1,7 @@
+{
+  "name": "tailwindcss",
+  "version": "0.0.0-stub",
+  "description": "Stub implementation of Tailwind CSS for offline environments.",
+  "type": "module",
+  "main": "index.js"
+}

@@ -1,4 +1,5 @@
 import useGameStore from '../store';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 const CrisisComponent = () => {
   const { currentCrisis } = useGameStore();
@@ -8,19 +9,25 @@ const CrisisComponent = () => {
   }
 
   return (
-    <div style={{ border: '1px solid #ccc', padding: '10px', marginBottom: '10px', backgroundColor: '#4a2a2a' }}>
-      <h2>วิกฤตการณ์ปัจจุบัน (Current Crisis)</h2>
-      <h3>{currentCrisis.title}</h3>
-      <p>{currentCrisis.story}</p>
-      <div>
-        <strong>ต้องการ:</strong>
-        <ul>
-          {currentCrisis.requirements.map((req, index) => (
-            <li key={index}>{req.type}: {req.amount}</li>
-          ))}
-        </ul>
-      </div>
-    </div>
+    <Card className="bg-surface">
+      <CardHeader>
+        <CardTitle>วิกฤตการณ์ปัจจุบัน (Current Crisis)</CardTitle>
+        <p className="text-sm text-muted">{currentCrisis.title}</p>
+      </CardHeader>
+      <CardContent className="text-sm text-muted flex flex-col gap-3">
+        <p>{currentCrisis.story}</p>
+        <div>
+          <strong className="text-xs uppercase tracking-wide text-muted">สิ่งที่ต้องการ</strong>
+          <ul className="inline-list mt-2">
+            {currentCrisis.requirements.map((req, index) => (
+              <li key={index}>
+                {req.type}: {req.amount}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
