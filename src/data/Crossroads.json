@@ -184,7 +184,14 @@
   {
     "id": "CR_L001_001",
     "title": "การปันส่วน (Rationing)",
-    "trigger": { "type": "STATE_CHECK", "phase": "COLONY", "condition": "COLONY_FOOD_LOW", "value": 3 },
+    "trigger": {
+      "type": "STATE_CHECK",
+      "phase": "COLONY",
+      "condition": "COLONY_FOOD_LOW",
+      "value": 3,
+      "requiredSurvivorIds": ["S001", "S004"],
+      "survivorsMustBePresent": true
+    },
     "setup": "(Trigger สุ่ม 30% ใน 'เฟส Colony' หาก อาหาร <= 3) 'นั่นมันส่วนของฉัน!' David กับ Marcus ทะเลาะกันเรื่องอาหารกระป๋อง สุดท้าย 'ความตึงเครียดมันสูงเกินไป'",
     "choices": [
       {
@@ -269,7 +276,14 @@
   {
     "id": "CR_L001_006",
     "title": "คนหน้าใหม่",
-    "trigger": { "type": "STATE_CHECK", "phase": "COLONY", "condition": "SURVIVOR_COUNT", "value": 4 },
+    "trigger": {
+      "type": "STATE_CHECK",
+      "phase": "COLONY",
+      "condition": "SURVIVOR_COUNT",
+      "value": 4,
+      "requiredSurvivorIds": ["S008"],
+      "survivorsMustBePresent": true
+    },
     "setup": "(Trigger สุ่ม 30% ใน 'เฟส Colony' ในวันแรกที่คุณมีผู้รอดชีวิต 4 คน) (ดัดแปลงจาก No. 66) 'ฉันไม่ชอบหน้าไอ้คนใหม่' Frank กระซิบ 'มันดูมีลับลมคมใน... มันขโมยของแน่ๆ'",
     "choices": [
       {

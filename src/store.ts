@@ -331,7 +331,7 @@ const useGameStore = create<GameState>((set, get) => ({
             finalSurvivors = finalSurvivors.map(s => s.status === 'Infected' ? { ...s, hp: 0 } : s);
         }
 
-        // Check for dead survivors
+        // Check for dead survivors before Arthur's skill
         finalSurvivors = finalSurvivors.filter(s => s.hp > 0);
         if (finalSurvivors.length === 0) {
             newGameStatus = 'Lost';
@@ -339,13 +339,31 @@ const useGameStore = create<GameState>((set, get) => ({
         }
 
         let currentMorale = get().morale;
-        const arthurIsAlive = finalSurvivors.some(s => s.id === 'S005');
-        if (arthurIsAlive && currentMorale <= 0) {
-            currentMorale = 1;
-            log.push('Arthur ปลุกใจทุกคน ขวัญกำลังใจไม่ลดต่ำกว่า 1!');
+        const arthurIndex = finalSurvivors.findIndex(s => s.id === 'S005');
+
+        if (arthurIndex !== -1 && currentMorale <= 0) {
+            currentMorale = 1; // สกิลทำงานก่อน
+            log.push('Arthur ใช้สกิล Inspiring Presence! Morale กลับไปที่ 1 แต่เขาได้รับ 1 บาดแผลจากความเครียด');
+            const arthur = finalSurvivors[arthurIndex];
+            finalSurvivors[arthurIndex] = { ...arthur, hp: arthur.hp - 1 };
+
+            // อัปเดต finalSurvivors อีกครั้งหลังจบ Logic เพื่อเช็กว่า Arthur ตายจากแผลนี้หรือไม่
+            if (finalSurvivors[arthurIndex].hp <= 0) {
+                log.push(`${finalSurvivors[arthurIndex].name} สละชีวิตเพื่อกลุ่ม...`);
+                finalSurvivors = finalSurvivors.filter(s => s.hp > 0);
+            }
         }
 
-        if (currentMorale <= 0) newGameStatus = 'Lost';
+        // ย้าย Logic เช็กแพ้ (morale and survivor count) มาไว้หลังจาก Logic ของ Arthur
+        if (newGameStatus !== 'Lost' && currentMorale <= 0) {
+            newGameStatus = 'Lost';
+            log.push('ขวัญกำลังใจตกต่ำถึงขีดสุด...');
+        }
+
+        if (newGameStatus !== 'Lost' && finalSurvivors.length === 0) {
+            newGameStatus = 'Lost';
+            log.push('ผู้รอดชีวิตคนสุดท้ายได้ตายจากไปแล้ว...');
+        }
 
         // Check win conditions
         if (mainObjective) {
@@ -692,6 +710,17 @@ const useGameStore = create<GameState>((set, get) => ({
     const { colonyBuffs } = get();
 
     const potentialCards = crossroadsDeck.filter(card => {
+      // Guard Clause ใหม่: เช็คว่ามีตัวละครที่ต้องการอยู่ในสถานที่ที่กำหนดหรือไม่
+      if (card.trigger.requiredSurvivorIds && card.trigger.survivorsMustBePresent) {
+        for (const survivorId of card.trigger.requiredSurvivorIds) {
+          const survivor = get().survivors.find(s => s.id === survivorId);
+          // ถ้าหาตัวละครไม่เจอ หรือ ตัวละครไม่ได้อยู่ที่ Compound (L001) -> ไม่ผ่านเงื่อนไข
+          if (!survivor || survivor.locationId !== 'L001') {
+            return false;
+          }
+        }
+      }
+
       const trigger = card.trigger;
       if (trigger.type !== triggerType) return false;
 

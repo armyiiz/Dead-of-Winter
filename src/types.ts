@@ -120,6 +120,8 @@ export interface CrossroadTrigger {
   survivor_id?: string;
   action?: string;
   effect?: string;
+  requiredSurvivorIds?: string[];
+  survivorsMustBePresent?: boolean;
 }
 
 export interface Crossroad {
