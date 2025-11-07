@@ -41,7 +41,7 @@
     "hp": 2,
     "skill": {
       "name": "Inspiring Presence",
-      "description": "(Passive) ตราบใดที่ 'Arthur' ยังมีชีวิตอยู่ 'ขวัญกำลังใจ' (Morale) ของกลุ่ม จะไม่สามารถลดต่ำกว่า 1 ได้"
+      "description": "(Passive) หาก Morale กำลังจะลดลงเหลือ 0 หรือต่ำกว่า, Morale จะถูกตั้งค่าเป็น 1 แทน, แต่ Arthur จะได้รับบาดแผล 1 แผล จากความเครียด"
     }
   },
   {
