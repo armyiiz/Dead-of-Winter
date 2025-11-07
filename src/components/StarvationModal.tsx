@@ -1,4 +1,5 @@
 import useGameStore from '../store';
+import Button from './ui/button';
 
 const StarvationModal = () => {
   const { survivors, pendingStarvationWounds, resolveStarvation } = useGameStore();
@@ -7,19 +8,17 @@ const StarvationModal = () => {
   const potentialTargets = survivors.filter(s => s.locationId === 'L001' && s.hp > 0);
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.75)', display: 'flex',
-      justifyContent: 'center', alignItems: 'center', zIndex: 1000
-    }}>
-      <div style={{ backgroundColor: 'white', padding: '20px', border: '2px solid red' }}>
-        <h2>อาหารไม่เพียงพอ!</h2>
-        <p>คุณต้องเลือกผู้รอดชีวิต {pendingStarvationWounds} คนเพื่อรับบาดแผลจากการอดอาหาร</p>
-        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+    <div className="fixed inset-0 bg-overlay backdrop-blur flex items-center justify-center z-50">
+      <div className="ui-modal max-w-lg">
+        <h2 className="text-2xl font-bold mb-2 text-danger">อาหารไม่เพียงพอ!</h2>
+        <p className="text-sm text-muted">
+          คุณต้องเลือกผู้รอดชีวิต {pendingStarvationWounds} คนเพื่อรับบาดแผลจากการอดอาหาร
+        </p>
+        <div className="flex flex-wrap gap-2 mt-4">
           {potentialTargets.map(survivor => (
-            <button key={survivor.id} onClick={() => resolveStarvation(survivor.id)}>
+            <Button key={survivor.id} variant="danger" onClick={() => resolveStarvation(survivor.id)}>
               {survivor.name} (HP: {survivor.hp})
-            </button>
+            </Button>
           ))}
         </div>
       </div>

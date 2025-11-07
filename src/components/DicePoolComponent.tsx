@@ -1,4 +1,6 @@
 import useGameStore from '../store';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { cn } from '../lib/utils';
 
 interface DicePoolProps {
   selectedDice: number | null;
@@ -20,32 +22,34 @@ const DicePoolComponent = ({ selectedDice, onSelectDice, isRerollMode, setReroll
   };
 
   return (
-    <div style={{ border: isRerollMode ? '2px solid cyan' : '1px solid #ccc', padding: '10px', marginBottom: '10px' }}>
-      <h2>ลูกเต๋า (Dice Pool)</h2>
-      {actionDice.length > 0 ? (
-        <div style={{ display: 'flex', gap: '10px' }}>
-          {actionDice.map((die, index) => (
-            <div
-              key={index}
-              onClick={() => handleDiceClick(die)}
-              style={{
-                border: selectedDice === die && !isRerollMode ? '2px solid cyan' : '1px solid white',
-                width: '30px',
-                height: '30px',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                cursor: 'pointer'
-              }}
-            >
-              {die}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p>ไม่มีลูกเต๋าให้ใช้</p>
-      )}
-    </div>
+    <Card className={cn('bg-surface', isRerollMode && 'border-strong shadow-lg')}>
+      <CardHeader>
+        <CardTitle>ลูกเต๋า (Dice Pool)</CardTitle>
+        {isRerollMode && <CardDescription>เลือกเต๋าเพื่อใช้สกิลทอยใหม่</CardDescription>}
+      </CardHeader>
+      <CardContent>
+        {actionDice.length > 0 ? (
+          <div className="dice-pool">
+            {actionDice.map((die, index) => (
+              <button
+                type="button"
+                key={`${die}-${index}`}
+                onClick={() => handleDiceClick(die)}
+                className={cn(
+                  'dice-token',
+                  selectedDice === die && !isRerollMode && 'active',
+                  isRerollMode && 'reroll'
+                )}
+              >
+                {die}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted">ไม่มีลูกเต๋าให้ใช้</p>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
