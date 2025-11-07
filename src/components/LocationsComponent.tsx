@@ -6,7 +6,8 @@ interface LocationsComponentProps {
 }
 
 const LocationsComponent: React.FC<LocationsComponentProps> = ({ selectedDice, onActionUsed }) => {
-  const { locations, selectedSurvivorId, moveSurvivor } = useGameStore();
+  const { locations, selectedSurvivorId, moveSurvivor, survivors } = useGameStore();
+  const selectedSurvivor = survivors.find(s => s.id === selectedSurvivorId);
 
   const handleMove = (locationId: string) => {
     if (selectedSurvivorId && selectedDice) {
@@ -27,7 +28,7 @@ const LocationsComponent: React.FC<LocationsComponentProps> = ({ selectedDice, o
           <h4>{location.name}</h4>
           <p>จำนวนซอมบี้: {location.zombies} / {location.zombieSlots}</p>
           <p>เครื่องกีดขวาง: {location.barricades}</p>
-          {selectedSurvivorId && (
+          {selectedSurvivorId && selectedSurvivor?.locationId !== location.id && (
             <button onClick={() => handleMove(location.id)} disabled={!selectedDice}>
               เดินทางมาที่นี่ (ใช้ลูกเต๋า: {selectedDice || 'เลือกก่อน'})
             </button>

@@ -8,8 +8,9 @@ interface ActionsProps {
 }
 
 const ActionsComponent = ({ selectedDice, isRerollMode, setRerollMode, onActionUsed }: ActionsProps) => {
-  const { selectedSurvivorId, attack, search, buildBarricade, cleanWaste, depositItems, survivors, activeDebuffs, hasRerolledThisTurn } = useGameStore();
+  const { selectedSurvivorId, attack, search, buildBarricade, cleanWaste, depositItems, survivors, locations, activeDebuffs, hasRerolledThisTurn } = useGameStore();
   const selectedSurvivor = survivors.find(s => s.id === selectedSurvivorId);
+  const currentLocation = locations.find(l => l.id === selectedSurvivor?.locationId);
   const isAttackDebuffed = activeDebuffs.some(d => d.type === 'ATTACK_DIFFICULTY_UP');
   const attackRequirement = isAttackDebuffed ? 4 : 3;
 
@@ -42,7 +43,10 @@ const ActionsComponent = ({ selectedDice, isRerollMode, setRerollMode, onActionU
       <h3>แอ็กชันสำหรับ: {selectedSurvivor.name}</h3>
       {isRerollMode && <p style={{ color: 'cyan' }}>โหมดทอยเต๋าใหม่: กรุณาเลือกลูกเต๋าจาก Dice Pool</p>}
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-        <button onClick={() => handleAction(attack)} disabled={!selectedDice || selectedDice < attackRequirement || isRerollMode}>
+        <button
+          onClick={() => handleAction(attack)}
+          disabled={!selectedDice || selectedDice < attackRequirement || isRerollMode || currentLocation?.zombies === 0}
+        >
           โจมตี (ต้องการ {attackRequirement}+)
         </button>
         <button onClick={() => handleAction(search)} disabled={!selectedDice || isRerollMode}>ค้นหา</button>
